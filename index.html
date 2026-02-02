@@ -14,54 +14,57 @@
             <p class="subtitle">Safely refactor Power BI semantic models with confidence</p>
         </header>
 
-        <!-- Folder Selection -->
-        <section class="folder-selection">
-            <button id="selectFolderBtn" class="btn btn-primary">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M14.5 3h-5.293l-.854-.854A.5.5 0 0013 2H1.5a.5.5 0 00-.5.5v11a.5.5 0 00.5.5h13a.5.5 0 00.5-.5v-10a.5.5 0 00-.5-.5zM1.5 3h4.793l.854.854A.5.5 0 007.5 4h7v9.5H1.5V3z"/>
-                </svg>
-                Select Project Folder
-            </button>
+        <!-- Project Header Section -->
+        <section class="project-header">
+            <!-- Left: Folder Selection and Project Info -->
+            <div class="project-info-section">
+                <button id="selectFolderBtn" class="btn btn-primary">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M14.5 3h-5.293l-.854-.854A.5.5 0 0013 2H1.5a.5.5 0 00-.5.5v11a.5.5 0 00.5.5h13a.5.5 0 00.5-.5v-10a.5.5 0 00-.5-.5zM1.5 3h4.793l.854.854A.5.5 0 007.5 4h7v9.5H1.5V3z"/>
+                    </svg>
+                    Select Project Folder
+                </button>
 
-            <!-- Selection Summary -->
-            <div id="selectionSummary" class="selection-summary hidden">
-                <div class="selection-item">
-                    <span class="label">📁 Project:</span>
-                    <span id="selectedProject" class="value">-</span>
+                <!-- Selection Summary -->
+                <div id="selectionSummary" class="selection-summary hidden">
+                    <div class="selection-item">
+                        <span class="label">📁 Project:</span>
+                        <span id="selectedProject" class="value">-</span>
+                    </div>
+                    <div class="selection-item">
+                        <span class="label">📊 Semantic Model:</span>
+                        <span id="selectedSemanticModel" class="value">-</span>
+                    </div>
+                    <div class="selection-item">
+                        <span class="label">📄 Report:</span>
+                        <span id="selectedReport" class="value">None</span>
+                    </div>
                 </div>
-                <div class="selection-item">
-                    <span class="label">📊 Semantic Model:</span>
-                    <span id="selectedSemanticModel" class="value">-</span>
-                </div>
-                <div class="selection-item">
-                    <span class="label">📄 Report:</span>
-                    <span id="selectedReport" class="value">None</span>
+
+                <div id="loadingIndicator" class="loading-indicator hidden">
+                    <div class="spinner"></div>
+                    <span id="loadingMessage">Parsing PBIP files...</span>
                 </div>
             </div>
 
-            <div id="loadingIndicator" class="loading-indicator hidden">
-                <div class="spinner"></div>
-                <span id="loadingMessage">Parsing PBIP files...</span>
-            </div>
-        </section>
-
-        <!-- Model Stats -->
-        <section id="modelStats" class="model-stats hidden">
-            <div class="stat-card">
-                <div class="stat-value" id="measureCount">0</div>
-                <div class="stat-label">Measures</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="tableCount">0</div>
-                <div class="stat-label">Tables</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="columnCount">0</div>
-                <div class="stat-label">Columns</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="visualCount">0</div>
-                <div class="stat-label">Visuals</div>
+            <!-- Right: Model Stats -->
+            <div id="modelStats" class="model-stats hidden">
+                <div class="stat-card">
+                    <div class="stat-value" id="measureCount">0</div>
+                    <div class="stat-label">Measures</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="tableCount">0</div>
+                    <div class="stat-label">Tables</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="columnCount">0</div>
+                    <div class="stat-label">Columns</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="visualCount">0</div>
+                    <div class="stat-label">Visuals</div>
+                </div>
             </div>
         </section>
 
@@ -73,17 +76,17 @@
                 </svg>
                 Impact Analysis
             </button>
+            <button class="tab-btn" data-tab="graph">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M1 11a1 1 0 011-1h2a1 1 0 011 1v3a1 1 0 01-1 1H2a1 1 0 01-1-1v-3zm5-4a1 1 0 011-1h2a1 1 0 011 1v7a1 1 0 01-1 1H7a1 1 0 01-1-1V7zm5-5a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V2z"/>
+                </svg>
+                Lineage
+            </button>
             <button class="tab-btn" data-tab="refactor">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M12.854 8.354l-4 4a.5.5 0 01-.708 0l-4-4a.5.5 0 11.708-.708L8 10.793l3.146-3.147a.5.5 0 01.708.708z"/>
                 </svg>
                 Safe Refactoring
-            </button>
-            <button class="tab-btn" data-tab="graph">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M1 11a1 1 0 011-1h2a1 1 0 011 1v3a1 1 0 01-1 1H2a1 1 0 01-1-1v-3zm5-4a1 1 0 011-1h2a1 1 0 011 1v7a1 1 0 01-1 1H7a1 1 0 01-1-1V7zm5-5a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V2z"/>
-                </svg>
-                Dependency Graph
             </button>
         </nav>
 
@@ -91,110 +94,122 @@
         <main class="tab-content">
             <!-- Impact Analysis Tab -->
             <div id="impact" class="tab-pane active">
-                <h2>Impact Analysis</h2>
-                <p class="description">Analyze what will be dependent when renaming or deleting a measure or column</p>
+                <div class="tab-layout">
+                    <!-- Left Sidebar -->
+                    <aside class="tab-sidebar">
+                        <h2>Impact Analysis</h2>
+                        <p class="description">Analyze dependencies when renaming or deleting a measure or column</p>
 
-                <div class="form-group">
-                    <label for="objectTypeSelect">Object Type:</label>
-                    <select id="objectTypeSelect" class="select">
-                        <option value="measure">Measure</option>
-                        <option value="column">Column</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="objectSelect">Select Object:</label>
-                    <select id="objectSelect" class="select">
-                        <option value="">-- Select a measure or column --</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="operationSelect">Operation:</label>
-                    <select id="operationSelect" class="select">
-                        <option value="rename">Rename</option>
-                        <option value="delete">Delete</option>
-                    </select>
-                </div>
-
-                <button id="analyzeBtn" class="btn btn-primary" disabled>Analyze Impact</button>
-
-                <div id="impactResults" class="results hidden">
-                    <!-- Selected Object Panel -->
-                    <div class="selected-object-panel">
-                        <h3 id="selectedObjectName">Measure Name</h3>
-                        <div class="dax-display hidden" id="selectedObjectDAX">
-                            <pre><code><!-- DAX code will be displayed here --></code></pre>
-                        </div>
-                    </div>
-
-                    <!-- Action Buttons -->
-                    <div id="impactActions" class="impact-actions hidden">
-                        <button id="viewLineageBtn" class="btn btn-secondary">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                <path d="M1 11a1 1 0 011-1h2a1 1 0 011 1v3a1 1 0 01-1 1H2a1 1 0 01-1-1v-3zm5-4a1 1 0 011-1h2a1 1 0 011 1v7a1 1 0 01-1 1H7a1 1 0 01-1-1V7zm5-5a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V2z"/>
-                            </svg>
-                            View Lineage Graph
-                        </button>
-                        <button id="proceedToRefactorBtn" class="btn btn-primary">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                <path d="M12.854 8.354l-4 4a.5.5 0 01-.708 0l-4-4a.5.5 0 11.708-.708L8 10.793l3.146-3.147a.5.5 0 01.708.708z"/>
-                            </svg>
-                            Proceed to Refactoring
-                        </button>
-                    </div>
-
-                    <!-- Split View: Upstream | Downstream -->
-                    <div class="impact-split-view">
-                        <!-- Upstream Column -->
-                        <div class="impact-column upstream-column">
-                            <h3>⬆️ Upstream Dependencies</h3>
-                            <div class="impact-summary">
-                                <span class="count" id="upstreamCount">0</span> total
-                            </div>
-
-                            <div class="dependency-section">
-                                <button class="section-toggle" data-section="upstream-tables">
-                                    <span class="toggle-icon">▼</span> Tables (<span id="upstreamTablesCount">0</span>)
-                                </button>
-                                <div id="upstreamTablesList" class="dependency-list"></div>
-                            </div>
-
-                            <div class="dependency-section">
-                                <button class="section-toggle" data-section="upstream-columns">
-                                    <span class="toggle-icon">▼</span> Columns (<span id="upstreamColumnsCount">0</span>)
-                                </button>
-                                <div id="upstreamColumnsList" class="dependency-list"></div>
-                            </div>
-
-                            <div class="dependency-section">
-                                <button class="section-toggle" data-section="upstream-measures">
-                                    <span class="toggle-icon">▼</span> Measures (<span id="upstreamMeasuresCount">0</span>)
-                                </button>
-                                <div id="upstreamMeasuresList" class="dependency-list"></div>
-                            </div>
+                        <div class="form-group">
+                            <label for="objectTypeSelect">Object Type:</label>
+                            <select id="objectTypeSelect" class="select">
+                                <option value="">-- Select object type --</option>
+                                <option value="measure">Measure</option>
+                                <option value="column">Column</option>
+                            </select>
                         </div>
 
-                        <!-- Downstream Column -->
-                        <div class="impact-column downstream-column">
-                            <h3>⬇️ Downstream Dependents</h3>
-                            <div class="impact-summary">
-                                <span class="count" id="downstreamCount">0</span> total
+                        <div class="form-group">
+                            <label for="objectSelect">Select Object:</label>
+                            <select id="objectSelect" class="select">
+                                <option value="">-- Select a measure or column --</option>
+                            </select>
+                        </div>
+
+                        <button id="analyzeBtn" class="btn btn-primary btn-full-width" disabled>Analyze Impact</button>
+                    </aside>
+
+                    <!-- Main Content Area -->
+                    <div class="tab-main-content">
+                        <div id="impactResults" class="results hidden">
+                            <!-- Selected Object Panel -->
+                            <div class="selected-object-panel">
+                                <h3 id="selectedObjectName">Measure Name</h3>
+                                <div class="dax-display hidden" id="selectedObjectDAX">
+                                    <pre><code><!-- DAX code will be displayed here --></code></pre>
+                                </div>
                             </div>
 
-                            <div class="dependency-section">
-                                <button class="section-toggle" data-section="downstream-measures">
-                                    <span class="toggle-icon">▼</span> Measures (<span id="downstreamMeasuresCount">0</span>)
+                            <!-- Action Buttons -->
+                            <div id="impactActions" class="impact-actions hidden">
+                                <button id="viewLineageBtn" class="btn btn-secondary">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                        <path d="M1 11a1 1 0 011-1h2a1 1 0 011 1v3a1 1 0 01-1 1H2a1 1 0 01-1-1v-3zm5-4a1 1 0 011-1h2a1 1 0 011 1v7a1 1 0 01-1 1H7a1 1 0 01-1-1V7zm5-5a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V2z"/>
+                                    </svg>
+                                    View Lineage
                                 </button>
-                                <div id="downstreamMeasuresList" class="dependency-list"></div>
+                                <button id="proceedToRefactorBtn" class="btn btn-primary">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                        <path d="M12.854 8.354l-4 4a.5.5 0 01-.708 0l-4-4a.5.5 0 11.708-.708L8 10.793l3.146-3.147a.5.5 0 01.708.708z"/>
+                                    </svg>
+                                    Proceed to Refactoring
+                                </button>
                             </div>
 
-                            <div class="dependency-section">
-                                <button class="section-toggle" data-section="downstream-visuals">
-                                    <span class="toggle-icon">▼</span> Visuals (<span id="downstreamVisualsCount">0</span>)
-                                </button>
-                                <div id="downstreamVisualsList" class="dependency-list"></div>
+                            <!-- Split View: Upstream | Downstream -->
+                            <div class="impact-split-view">
+                                <!-- Upstream Column -->
+                                <div class="impact-column upstream-column">
+                                    <h3>Upstream Dependencies</h3>
+                                    <div class="impact-summary">
+                                        <span class="count" id="upstreamCount">0</span> total
+                                    </div>
+
+                                    <div class="dependency-section">
+                                        <button class="section-toggle" data-section="upstream-tables">
+                                            <span class="toggle-icon">▼</span> Tables (<span id="upstreamTablesCount">0</span>)
+                                        </button>
+                                        <div id="upstreamTablesList" class="dependency-list"></div>
+                                    </div>
+
+                                    <div class="dependency-section">
+                                        <button class="section-toggle" data-section="upstream-columns">
+                                            <span class="toggle-icon">▼</span> Columns (<span id="upstreamColumnsCount">0</span>)
+                                        </button>
+                                        <div id="upstreamColumnsList" class="dependency-list"></div>
+                                    </div>
+
+                                    <div class="dependency-section">
+                                        <button class="section-toggle" data-section="upstream-measures">
+                                            <span class="toggle-icon">▼</span> Measures (<span id="upstreamMeasuresCount">0</span>)
+                                        </button>
+                                        <div id="upstreamMeasuresList" class="dependency-list"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Downstream Column -->
+                                <div class="impact-column downstream-column">
+                                    <h3>Downstream Dependents</h3>
+                                    <div class="impact-summary">
+                                        <span class="count" id="downstreamCount">0</span> total
+                                    </div>
+
+                                    <div class="dependency-section">
+                                        <button class="section-toggle" data-section="downstream-measures">
+                                            <span class="toggle-icon">▼</span> Measures (<span id="downstreamMeasuresCount">0</span>)
+                                        </button>
+                                        <div id="downstreamMeasuresList" class="dependency-list"></div>
+                                    </div>
+
+                                    <div class="dependency-section">
+                                        <button class="section-toggle" data-section="downstream-visuals">
+                                            <span class="toggle-icon">▼</span> Visuals (<span id="downstreamVisualsCount">0</span>)
+                                        </button>
+                                        <div id="downstreamVisualsList" class="dependency-list"></div>
+                                    </div>
+                                </div>
                             </div>
+                        </div>
+
+                        <!-- Placeholder when no results -->
+                        <div id="impactPlaceholder" class="content-placeholder">
+                            <div class="placeholder-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="11" cy="11" r="8"/>
+                                    <path d="M21 21l-4.35-4.35"/>
+                                </svg>
+                            </div>
+                            <p>Select an object type and object to analyze its dependencies</p>
                         </div>
                     </div>
                 </div>
@@ -202,66 +217,90 @@
 
             <!-- Safe Refactoring Tab -->
             <div id="refactor" class="tab-pane">
-                <h2>Safe Refactoring</h2>
-                <p class="description">Rename measures or columns with a preview of all changes before applying</p>
+                <div class="tab-layout">
+                    <!-- Left Sidebar -->
+                    <aside class="tab-sidebar">
+                        <h2>Safe Refactoring</h2>
+                        <p class="description">Rename measures or columns with preview</p>
 
-                <div class="refactor-tip">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 1a6 6 0 110 12A6 6 0 018 2zm-.5 3a.5.5 0 011 0v4a.5.5 0 01-1 0V5zm.5 7a.75.75 0 100-1.5.75.75 0 000 1.5z"/>
-                    </svg>
-                    <span>Tip: Use <strong>Impact Analysis</strong> first to understand what will be affected, then click "Proceed to Refactoring"</span>
-                </div>
+                        <div class="refactor-tip">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 1a6 6 0 110 12A6 6 0 018 2zm-.5 3a.5.5 0 011 0v4a.5.5 0 01-1 0V5zm.5 7a.75.75 0 100-1.5.75.75 0 000 1.5z"/>
+                            </svg>
+                            <span>Tip: Use <strong>Impact Analysis</strong> first</span>
+                        </div>
 
-                <div class="form-group">
-                    <label for="refactorTypeSelect">Object Type:</label>
-                    <select id="refactorTypeSelect" class="select">
-                        <option value="measure">Measure</option>
-                        <option value="column">Column</option>
-                    </select>
-                </div>
+                        <div class="form-group">
+                            <label for="refactorTypeSelect">Object Type:</label>
+                            <select id="refactorTypeSelect" class="select">
+                                <option value="measure">Measure</option>
+                                <option value="column">Column</option>
+                            </select>
+                        </div>
 
-                <div class="form-group">
-                    <label for="refactorObjectSelect">Select Object to Rename:</label>
-                    <select id="refactorObjectSelect" class="select">
-                        <option value="">-- Select a measure or column --</option>
-                    </select>
-                </div>
+                        <div class="form-group">
+                            <label for="refactorObjectSelect">Select Object:</label>
+                            <select id="refactorObjectSelect" class="select">
+                                <option value="">-- Select a measure or column --</option>
+                            </select>
+                        </div>
 
-                <div class="form-group">
-                    <label for="newNameInput">New Name:</label>
-                    <input type="text" id="newNameInput" class="input" placeholder="Enter new name">
-                </div>
+                        <div class="form-group">
+                            <label for="newNameInput">New Name:</label>
+                            <input type="text" id="newNameInput" class="input" placeholder="Enter new name">
+                        </div>
 
-                <button id="previewBtn" class="btn btn-primary" disabled>Preview Changes</button>
+                        <button id="previewBtn" class="btn btn-primary btn-full-width" disabled>Preview Changes</button>
+                    </aside>
 
-                <div id="previewResults" class="results hidden">
-                    <h3>Preview Changes</h3>
-                    <p class="warning-message">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M7.938 2.016a.146.146 0 00-.054.057L1.027 13.74a.176.176 0 00-.002.183c.016.03.037.05.054.06.015.01.034.017.066.017h13.713a.12.12 0 00.066-.017.163.163 0 00.055-.06.176.176 0 00-.003-.183L8.12 2.073a.146.146 0 00-.054-.057A.13.13 0 008.002 2a.13.13 0 00-.064.016z"/>
-                            <path d="M7.002 12a1 1 0 112 0 1 1 0 01-2 0zM7.1 5.995a.905.905 0 111.8 0l-.35 3.507a.553.553 0 01-1.1 0L7.1 5.995z"/>
-                        </svg>
-                        Review all changes carefully before applying
-                    </p>
-                    <div id="changesList" class="changes-list"></div>
-                    <button id="applyChangesBtn" class="btn btn-success">Apply All Changes</button>
-                    <button id="cancelChangesBtn" class="btn btn-secondary">Cancel</button>
+                    <!-- Main Content Area -->
+                    <div class="tab-main-content">
+                        <div id="previewResults" class="results hidden">
+                            <h3>Preview Changes</h3>
+                            <p class="warning-message">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M7.938 2.016a.146.146 0 00-.054.057L1.027 13.74a.176.176 0 00-.002.183c.016.03.037.05.054.06.015.01.034.017.066.017h13.713a.12.12 0 00.066-.017.163.163 0 00.055-.06.176.176 0 00-.003-.183L8.12 2.073a.146.146 0 00-.054-.057A.13.13 0 008.002 2a.13.13 0 00-.064.016z"/>
+                                    <path d="M7.002 12a1 1 0 112 0 1 1 0 01-2 0zM7.1 5.995a.905.905 0 111.8 0l-.35 3.507a.553.553 0 01-1.1 0L7.1 5.995z"/>
+                                </svg>
+                                Review all changes carefully before applying
+                            </p>
+                            <div id="changesList" class="changes-list"></div>
+                            <div class="preview-actions">
+                                <button id="applyChangesBtn" class="btn btn-success">Apply All Changes</button>
+                                <button id="cancelChangesBtn" class="btn btn-secondary">Cancel</button>
+                            </div>
+                        </div>
+
+                        <!-- Placeholder when no preview -->
+                        <div id="refactorPlaceholder" class="content-placeholder">
+                            <div class="placeholder-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                </svg>
+                            </div>
+                            <p>Select an object and enter a new name to preview changes</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Dependency Graph Tab -->
+            <!-- Lineage Tab -->
             <div id="graph" class="tab-pane">
-                <h2>Lineage Graph</h2>
-                <p class="description">Visual lineage of the selected object showing upstream dependencies and downstream dependents</p>
-
-                <div class="graph-controls">
-                    <button id="exportGraphBtn" class="btn btn-secondary">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M.5 9.9a.5.5 0 01.5.5v2.5a1 1 0 001 1h12a1 1 0 001-1v-2.5a.5.5 0 011 0v2.5a2 2 0 01-2 2H2a2 2 0 01-2-2v-2.5a.5.5 0 01.5-.5z"/>
-                            <path d="M7.646 11.854a.5.5 0 00.708 0l3-3a.5.5 0 00-.708-.708L8.5 10.293V1.5a.5.5 0 00-1 0v8.793L5.354 8.146a.5.5 0 10-.708.708l3 3z"/>
-                        </svg>
-                        Export as PNG
-                    </button>
+                <div class="graph-header">
+                    <div>
+                        <h2>Lineage</h2>
+                        <p class="description">Visual lineage showing upstream dependencies and downstream dependents</p>
+                    </div>
+                    <div class="graph-controls">
+                        <button id="exportGraphBtn" class="btn btn-secondary">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M.5 9.9a.5.5 0 01.5.5v2.5a1 1 0 001 1h12a1 1 0 001-1v-2.5a.5.5 0 011 0v2.5a2 2 0 01-2 2H2a2 2 0 01-2-2v-2.5a.5.5 0 01.5-.5z"/>
+                                <path d="M7.646 11.854a.5.5 0 00.708 0l3-3a.5.5 0 00-.708-.708L8.5 10.293V1.5a.5.5 0 00-1 0v8.793L5.354 8.146a.5.5 0 10-.708.708l3 3z"/>
+                            </svg>
+                            Export as PNG
+                        </button>
+                    </div>
                 </div>
 
                 <div id="graphContainer" class="graph-container">

@@ -230,7 +230,7 @@ async function loadPBIPFiles() {
     document.getElementById('tabNav').style.display = 'flex';
 
     showLoading(false);
-    showSuccess('PBIP folder loaded successfully!');
+    // Success feedback is provided by the populated stats and project info
 }
 
 /**
@@ -291,6 +291,11 @@ function populateImpactObjectSelect() {
 
     const type = typeSelect.value;
 
+    if (!type) {
+        objectSelect.innerHTML = '<option value="">-- Select a measure or column --</option>';
+        return;
+    }
+
     objectSelect.innerHTML = '<option value="">-- Select a ' + type + ' --</option>';
 
     if (type === 'measure') {
@@ -350,8 +355,23 @@ function populateRefactorObjectSelect() {
  * Handle object type change in impact analysis
  */
 function handleObjectTypeChange() {
-    populateImpactObjectSelect();
-    document.getElementById('impactResults').classList.add('hidden');
+    const typeSelect = document.getElementById('objectTypeSelect');
+    const objectSelect = document.getElementById('objectSelect');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const impactResults = document.getElementById('impactResults');
+    const placeholder = document.getElementById('impactPlaceholder');
+
+    if (!typeSelect.value) {
+        // No object type selected - clear and disable
+        objectSelect.innerHTML = '<option value="">-- Select a measure or column --</option>';
+        analyzeBtn.disabled = true;
+    } else {
+        populateImpactObjectSelect();
+    }
+
+    // Hide results, show placeholder
+    impactResults.classList.add('hidden');
+    if (placeholder) placeholder.classList.remove('hidden');
 }
 
 /**
@@ -369,15 +389,13 @@ function handleObjectSelectChange() {
  */
 function handleAnalyzeImpact() {
     const objectSelect = document.getElementById('objectSelect');
-    const operationSelect = document.getElementById('operationSelect');
 
     const nodeId = objectSelect.value;
-    const operation = operationSelect.value;
 
     if (!nodeId) return;
 
-    // Perform enhanced impact analysis
-    const result = dependencyAnalyzer.analyzeImpactEnhanced(nodeId, operation);
+    // Perform enhanced impact analysis (operation doesn't affect impact results)
+    const result = dependencyAnalyzer.analyzeImpactEnhanced(nodeId, 'rename');
 
     // Store current result for other tabs
     currentImpactResult = { nodeId, result };
@@ -394,12 +412,16 @@ function handleAnalyzeImpact() {
  */
 function displayImpactResults(result) {
     const resultsContainer = document.getElementById('impactResults');
+    const placeholder = document.getElementById('impactPlaceholder');
 
     // Check for error
     if (result.error) {
         console.error('Impact analysis error:', result.error);
         return;
     }
+
+    // Hide placeholder, show results
+    if (placeholder) placeholder.classList.add('hidden');
 
     // Display selected object with DAX
     document.getElementById('selectedObjectName').textContent = result.targetName;
@@ -769,7 +791,12 @@ async function handlePreviewRefactor() {
  */
 function displayRefactorPreview(changes) {
     const changesList = document.getElementById('changesList');
+    const placeholder = document.getElementById('refactorPlaceholder');
+
     changesList.innerHTML = '';
+
+    // Hide placeholder
+    if (placeholder) placeholder.classList.add('hidden');
 
     if (changes.length === 0) {
         changesList.innerHTML = '<div class="empty-results">No changes needed</div>';
@@ -788,6 +815,8 @@ function displayRefactorPreview(changes) {
     applyBtn.onclick = handleApplyChanges;
     cancelBtn.onclick = () => {
         document.getElementById('previewResults').classList.add('hidden');
+        const refactorPlaceholder = document.getElementById('refactorPlaceholder');
+        if (refactorPlaceholder) refactorPlaceholder.classList.remove('hidden');
     };
 }
 
@@ -873,6 +902,30 @@ function switchTab(tabName) {
     tabPanes.forEach(pane => {
         pane.classList.toggle('active', pane.id === tabName);
     });
+
+    // When switching to refactoring tab, preserve selection from Impact Analysis
+    if (tabName === 'refactor') {
+        const impactTypeSelect = document.getElementById('objectTypeSelect');
+        const impactObjectSelect = document.getElementById('objectSelect');
+
+        if (impactTypeSelect.value && impactObjectSelect.value) {
+            const refactorTypeSelect = document.getElementById('refactorTypeSelect');
+            refactorTypeSelect.value = impactTypeSelect.value;
+            populateRefactorObjectSelect();
+
+            const refactorObjectSelect = document.getElementById('refactorObjectSelect');
+            // Map the impact object value to refactor object value
+            if (impactTypeSelect.value === 'measure') {
+                // Impact uses "Measure.name", refactor uses "name"
+                const measureName = impactObjectSelect.value.replace('Measure.', '');
+                refactorObjectSelect.value = measureName;
+            } else if (impactTypeSelect.value === 'column') {
+                // Both use "table.column" format
+                refactorObjectSelect.value = impactObjectSelect.value;
+            }
+            updatePreviewButton();
+        }
+    }
 }
 
 /**
