@@ -1,0 +1,1188 @@
+/**
+ * Main Application Module
+ * Orchestrates UI interactions and coordinates between modules
+ */
+
+// Global state
+let fileAccessManager;
+let dependencyAnalyzer;
+let refactoringEngine;
+let graphVisualizer;
+let parsedData = {
+    measures: [],
+    tables: [],
+    visuals: [],
+    relationships: [],
+    pages: []
+};
+let currentImpactResult = null; // Store current impact analysis result
+
+/**
+ * Initialize application
+ */
+function init() {
+    console.log('Initializing PBIP Impact Analyzer...');
+
+    // Initialize managers
+    fileAccessManager = new FileAccessManager();
+    dependencyAnalyzer = new DependencyAnalyzer();
+    refactoringEngine = new RefactoringEngine(dependencyAnalyzer, fileAccessManager);
+    graphVisualizer = new GraphVisualizer('graphContainer');
+
+    // Check browser support
+    if (!fileAccessManager.isSupported()) {
+        showError('File System Access API is not supported in this browser. Please use Chrome, Edge, or another Chromium-based browser.');
+        document.getElementById('selectFolderBtn').disabled = true;
+        return;
+    }
+
+    // Set up event listeners
+    setupEventListeners();
+
+    console.log('Application initialized successfully');
+}
+
+/**
+ * Set up all event listeners
+ */
+function setupEventListeners() {
+    // Folder selection
+    document.getElementById('selectFolderBtn').addEventListener('click', handleFolderSelection);
+
+    // Tab navigation
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    tabButtons.forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+
+    // Impact Analysis tab
+    document.getElementById('objectTypeSelect').addEventListener('change', handleObjectTypeChange);
+    document.getElementById('objectSelect').addEventListener('change', handleObjectSelectChange);
+    document.getElementById('analyzeBtn').addEventListener('click', handleAnalyzeImpact);
+
+    // Safe Refactoring tab
+    document.getElementById('refactorTypeSelect').addEventListener('change', handleRefactorTypeChange);
+    document.getElementById('refactorObjectSelect').addEventListener('change', handleRefactorObjectChange);
+    document.getElementById('newNameInput').addEventListener('input', handleNewNameInput);
+    document.getElementById('previewBtn').addEventListener('click', handlePreviewRefactor);
+
+    // Dependency Graph tab (export only)
+    document.getElementById('exportGraphBtn').addEventListener('click', handleExportGraph);
+}
+
+/**
+ * Handle folder selection
+ */
+async function handleFolderSelection() {
+    try {
+        showLoading(true, 'Analyzing folder structure...');
+
+        // Step 1: Always ask user to select PROJECT folder first
+        const folderHandle = await window.showDirectoryPicker({
+            mode: 'readwrite',
+            startIn: 'documents'
+        });
+
+        if (!folderHandle) {
+            showLoading(false);
+            return; // User cancelled
+        }
+
+        fileAccessManager.folderHandle = folderHandle;
+
+        // Analyze what was selected
+        const analysis = await fileAccessManager.analyzeFolder(folderHandle);
+
+        // Route based on what was selected
+        if (analysis.isSemanticModel) {
+            // User selected SemanticModel directly - show helpful error
+            showError(
+                'You selected a SemanticModel folder directly.\n\n' +
+                'To discover related Report folders, please select the PROJECT folder instead.\n\n' +
+                'The PROJECT folder is the parent folder that contains:\n' +
+                '- One or more .SemanticModel folders\n' +
+                '- One or more .Report folders\n\n' +
+                `You selected: ${folderHandle.name}\n` +
+                'Please select the folder one level up and try again.'
+            );
+            showLoading(false);
+            return;
+        }
+
+        if (analysis.isReport) {
+            // User selected Report directly - show helpful error
+            showError(
+                'You selected a Report folder directly.\n\n' +
+                'To discover the correct structure, please select the PROJECT folder instead.\n\n' +
+                'The PROJECT folder is the parent folder that contains:\n' +
+                '- One or more .SemanticModel folders\n' +
+                '- One or more .Report folders\n\n' +
+                `You selected: ${folderHandle.name}\n` +
+                'Please select the folder one level up and try again.'
+            );
+            showLoading(false);
+            return;
+        }
+
+        // Step 2: Show SemanticModel picker
+        if (analysis.semanticModels.length === 0) {
+            throw new Error(
+                'No .SemanticModel folders found in the selected folder.\n\n' +
+                'Please select a PBIP project folder that contains:\n' +
+                '- At least one .SemanticModel folder\n' +
+                '- Optionally, one or more .Report folders\n\n' +
+                `Selected: ${folderHandle.name}`
+            );
+        } else if (analysis.semanticModels.length === 1) {
+            // Auto-select the only one
+            fileAccessManager.semanticModelHandle = analysis.semanticModels[0].handle;
+            console.log(`Auto-selected SemanticModel: ${analysis.semanticModels[0].name}`);
+        } else {
+            // Show picker for multiple
+            await showSemanticModelPicker(analysis.semanticModels);
+        }
+
+        // Step 3: Discover and show related Reports
+        await handleReportDiscovery();
+
+    } catch (error) {
+        if (error.name !== 'AbortError' && error.message !== 'User cancelled') {
+            console.error('Error selecting folder:', error);
+            showError(error.message);
+        }
+        showLoading(false);
+    }
+}
+
+/**
+ * Get page display name from pageId
+ * @param {string} pageId - The page ID (folder name)
+ * @returns {string} The display name or pageId if not found
+ */
+function getPageDisplayName(pageId) {
+    const page = parsedData.pages.find(p => p.pageId === pageId);
+    const displayName = page?.content?.displayName;
+    // Fallback to pageId if displayName is missing or empty
+    return displayName && displayName.trim() !== '' ? displayName : pageId;
+}
+
+/**
+ * Load and parse PBIP files
+ */
+async function loadPBIPFiles() {
+    console.log('Loading PBIP files...');
+
+    // Read semantic model files
+    const semanticModelFiles = await fileAccessManager.readSemanticModelFiles();
+
+    // Parse measures
+    if (semanticModelFiles.measures) {
+        parsedData.measures = TMDLParser.parseMeasuresTMDL(semanticModelFiles.measures.content);
+    }
+
+    // Parse tables
+    parsedData.tables = [];
+    for (const tableFile of semanticModelFiles.tables) {
+        const tableData = TMDLParser.parseTableTMDL(tableFile.content, tableFile.fileName);
+        parsedData.tables.push(tableData);
+    }
+
+    // Parse relationships
+    if (semanticModelFiles.relationships) {
+        parsedData.relationships = TMDLParser.parseRelationshipsTMDL(semanticModelFiles.relationships.content);
+    }
+
+    // Read report files
+    const reportFiles = await fileAccessManager.readReportFiles();
+
+    // Store pages for display name lookup
+    parsedData.pages = reportFiles.pages || [];
+
+    // Parse visuals
+    parsedData.visuals = [];
+    for (const visualFile of reportFiles.visuals) {
+        const visualData = JSONParser.parseVisual(visualFile.content);
+        parsedData.visuals.push({
+            pageId: visualFile.pageId,
+            visualId: visualFile.visualId,
+            visualType: visualData.visualType,
+            visualName: visualData.visualName,
+            fields: visualData.fields,
+            pageName: getPageDisplayName(visualFile.pageId)
+        });
+    }
+
+    // Build dependency graph
+    dependencyAnalyzer.buildDependencyGraph(parsedData);
+
+    // Update UI
+    updateModelStats();
+    populateObjectSelects();
+
+    // Initialize graph with placeholder (will update after impact analysis)
+    graphVisualizer.clear();
+
+    // Update selection summary
+    updateSelectionSummary();
+
+    // Show model stats and enable tabs
+    document.getElementById('modelStats').classList.remove('hidden');
+    document.getElementById('tabNav').style.display = 'flex';
+
+    showLoading(false);
+    showSuccess('PBIP folder loaded successfully!');
+}
+
+/**
+ * Update selection summary display
+ */
+function updateSelectionSummary() {
+    const summarySection = document.getElementById('selectionSummary');
+    const projectEl = document.getElementById('selectedProject');
+    const semanticModelEl = document.getElementById('selectedSemanticModel');
+    const reportEl = document.getElementById('selectedReport');
+
+    if (fileAccessManager.folderHandle) {
+        projectEl.textContent = fileAccessManager.folderHandle.name;
+    }
+
+    if (fileAccessManager.semanticModelHandle) {
+        semanticModelEl.textContent = fileAccessManager.semanticModelHandle.name;
+    }
+
+    if (fileAccessManager.reportHandle) {
+        reportEl.textContent = fileAccessManager.reportHandle.name;
+    } else {
+        reportEl.textContent = 'None (SemanticModel only)';
+    }
+
+    summarySection.classList.remove('hidden');
+}
+
+/**
+ * Update model statistics display
+ */
+function updateModelStats() {
+    const stats = dependencyAnalyzer.getStatistics();
+
+    document.getElementById('measureCount').textContent = stats.measureCount;
+    document.getElementById('tableCount').textContent = stats.tableCount;
+    document.getElementById('columnCount').textContent = stats.columnCount;
+    document.getElementById('visualCount').textContent = stats.visualCount;
+}
+
+/**
+ * Populate object selection dropdowns
+ */
+function populateObjectSelects() {
+    // Impact Analysis tab
+    populateImpactObjectSelect();
+
+    // Refactoring tab
+    populateRefactorObjectSelect();
+}
+
+/**
+ * Populate impact analysis object select
+ */
+function populateImpactObjectSelect() {
+    const typeSelect = document.getElementById('objectTypeSelect');
+    const objectSelect = document.getElementById('objectSelect');
+
+    const type = typeSelect.value;
+
+    objectSelect.innerHTML = '<option value="">-- Select a ' + type + ' --</option>';
+
+    if (type === 'measure') {
+        parsedData.measures.forEach(measure => {
+            const option = document.createElement('option');
+            option.value = `Measure.${measure.name}`;
+            option.textContent = measure.name;
+            objectSelect.appendChild(option);
+        });
+    } else if (type === 'column') {
+        parsedData.tables.forEach(table => {
+            table.columns.forEach(column => {
+                const option = document.createElement('option');
+                option.value = `${table.tableName}.${column.name}`;
+                option.textContent = `${table.tableName}.${column.name}`;
+                objectSelect.appendChild(option);
+            });
+        });
+    }
+}
+
+/**
+ * Populate refactor object select
+ */
+function populateRefactorObjectSelect() {
+    const typeSelect = document.getElementById('refactorTypeSelect');
+    const objectSelect = document.getElementById('refactorObjectSelect');
+
+    const type = typeSelect.value;
+
+    objectSelect.innerHTML = '<option value="">-- Select a ' + type + ' to rename --</option>';
+
+    if (type === 'measure') {
+        parsedData.measures.forEach(measure => {
+            const option = document.createElement('option');
+            option.value = measure.name;
+            option.dataset.type = 'measure';
+            option.textContent = measure.name;
+            objectSelect.appendChild(option);
+        });
+    } else if (type === 'column') {
+        parsedData.tables.forEach(table => {
+            table.columns.forEach(column => {
+                const option = document.createElement('option');
+                option.value = `${table.tableName}.${column.name}`;
+                option.dataset.type = 'column';
+                option.dataset.table = table.tableName;
+                option.dataset.column = column.name;
+                option.textContent = `${table.tableName}.${column.name}`;
+                objectSelect.appendChild(option);
+            });
+        });
+    }
+}
+
+/**
+ * Handle object type change in impact analysis
+ */
+function handleObjectTypeChange() {
+    populateImpactObjectSelect();
+    document.getElementById('impactResults').classList.add('hidden');
+}
+
+/**
+ * Handle object select change
+ */
+function handleObjectSelectChange() {
+    const objectSelect = document.getElementById('objectSelect');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+
+    analyzeBtn.disabled = !objectSelect.value;
+}
+
+/**
+ * Handle analyze impact button click
+ */
+function handleAnalyzeImpact() {
+    const objectSelect = document.getElementById('objectSelect');
+    const operationSelect = document.getElementById('operationSelect');
+
+    const nodeId = objectSelect.value;
+    const operation = operationSelect.value;
+
+    if (!nodeId) return;
+
+    // Perform enhanced impact analysis
+    const result = dependencyAnalyzer.analyzeImpactEnhanced(nodeId, operation);
+
+    // Store current result for other tabs
+    currentImpactResult = { nodeId, result };
+
+    // Display results
+    displayImpactResults(result);
+
+    // Update mini lineage visualization
+    graphVisualizer.renderMiniLineage(nodeId, result);
+}
+
+/**
+ * Display enhanced impact analysis results
+ */
+function displayImpactResults(result) {
+    const resultsContainer = document.getElementById('impactResults');
+
+    // Check for error
+    if (result.error) {
+        console.error('Impact analysis error:', result.error);
+        return;
+    }
+
+    // Display selected object with DAX
+    document.getElementById('selectedObjectName').textContent = result.targetName;
+
+    const daxContainer = document.getElementById('selectedObjectDAX');
+    if (result.targetDAX) {
+        daxContainer.innerHTML = `<pre><code>${escapeHtml(result.targetDAX)}</code></pre>`;
+        daxContainer.classList.remove('hidden');
+    } else {
+        daxContainer.classList.add('hidden');
+    }
+
+    // Display upstream dependencies
+    displayUpstreamDependencies(result.upstream);
+
+    // Display downstream dependents
+    displayDownstreamDependents(result.downstream);
+
+    // Setup section toggle handlers
+    document.querySelectorAll('.section-toggle').forEach(btn => {
+        btn.addEventListener('click', handleSectionToggle);
+    });
+
+    // Update action buttons
+    updateImpactActionButtons(result);
+
+    resultsContainer.classList.remove('hidden');
+}
+
+/**
+ * Update action buttons after impact analysis
+ */
+function updateImpactActionButtons(result) {
+    // Show action buttons container
+    const actionsContainer = document.getElementById('impactActions');
+    if (actionsContainer) {
+        actionsContainer.classList.remove('hidden');
+    }
+
+    // Setup Proceed to Refactoring button
+    const refactorBtn = document.getElementById('proceedToRefactorBtn');
+    if (refactorBtn) {
+        refactorBtn.onclick = () => proceedToRefactoring(result);
+    }
+
+    // Setup View Lineage button
+    const lineageBtn = document.getElementById('viewLineageBtn');
+    if (lineageBtn) {
+        lineageBtn.onclick = () => {
+            switchTab('graph');
+        };
+    }
+}
+
+/**
+ * Proceed to refactoring with current selection
+ */
+function proceedToRefactoring(result) {
+    // Switch to refactoring tab
+    switchTab('refactor');
+
+    // Set the object type
+    const typeSelect = document.getElementById('refactorTypeSelect');
+    typeSelect.value = result.targetType;
+    populateRefactorObjectSelect();
+
+    // Set the selected object
+    const objectSelect = document.getElementById('refactorObjectSelect');
+    if (result.targetType === 'measure') {
+        objectSelect.value = result.targetName;
+    } else if (result.targetType === 'column') {
+        // For columns, the value format is "table.column"
+        objectSelect.value = result.targetNode.replace('Measure.', '');
+    }
+
+    // Focus on new name input
+    const newNameInput = document.getElementById('newNameInput');
+    newNameInput.focus();
+    updatePreviewButton();
+}
+
+/**
+ * Display upstream dependencies
+ */
+function displayUpstreamDependencies(upstream) {
+    // Update counts
+    document.getElementById('upstreamCount').textContent = upstream.totalCount || 0;
+    document.getElementById('upstreamTablesCount').textContent = upstream.tables.length;
+    document.getElementById('upstreamColumnsCount').textContent = upstream.columns.length;
+    document.getElementById('upstreamMeasuresCount').textContent = upstream.measures.length;
+
+    // Display tables
+    const tablesContainer = document.getElementById('upstreamTablesList');
+    tablesContainer.innerHTML = '';
+    if (upstream.tables.length === 0) {
+        tablesContainer.innerHTML = '<div class="empty-results">No tables</div>';
+    } else {
+        upstream.tables.forEach(table => {
+            const item = createDependencyItem(table, 'table');
+            tablesContainer.appendChild(item);
+        });
+    }
+
+    // Display columns
+    const columnsContainer = document.getElementById('upstreamColumnsList');
+    columnsContainer.innerHTML = '';
+    if (upstream.columns.length === 0) {
+        columnsContainer.innerHTML = '<div class="empty-results">No columns</div>';
+    } else {
+        upstream.columns.forEach(column => {
+            const item = createDependencyItem(column, 'column');
+            columnsContainer.appendChild(item);
+        });
+    }
+
+    // Display measures
+    const measuresContainer = document.getElementById('upstreamMeasuresList');
+    measuresContainer.innerHTML = '';
+    if (upstream.measures.length === 0) {
+        measuresContainer.innerHTML = '<div class="empty-results">No measures</div>';
+    } else {
+        upstream.measures.forEach(measure => {
+            const item = createDependencyItem(measure, 'measure', true);
+            measuresContainer.appendChild(item);
+        });
+    }
+}
+
+/**
+ * Display downstream dependents
+ */
+function displayDownstreamDependents(downstream) {
+    // Update counts
+    document.getElementById('downstreamCount').textContent = downstream.totalCount || 0;
+    document.getElementById('downstreamMeasuresCount').textContent = downstream.measures.length;
+    document.getElementById('downstreamVisualsCount').textContent = downstream.visuals.length;
+
+    // Display measures
+    const measuresContainer = document.getElementById('downstreamMeasuresList');
+    measuresContainer.innerHTML = '';
+    if (downstream.measures.length === 0) {
+        measuresContainer.innerHTML = '<div class="empty-results">No dependent measures</div>';
+    } else {
+        downstream.measures.forEach(measure => {
+            const item = createDependencyItem(measure, 'measure', true);
+            measuresContainer.appendChild(item);
+        });
+    }
+
+    // Display visuals
+    const visualsContainer = document.getElementById('downstreamVisualsList');
+    visualsContainer.innerHTML = '';
+    if (downstream.visuals.length === 0) {
+        visualsContainer.innerHTML = '<div class="empty-results">No dependent visuals</div>';
+    } else {
+        downstream.visuals.forEach(visual => {
+            const item = createDependencyItem(visual, 'visual');
+            visualsContainer.appendChild(item);
+        });
+    }
+}
+
+/**
+ * Create a dependency item element
+ */
+function createDependencyItem(item, type, showDAX = false) {
+    const div = document.createElement('div');
+    div.className = `dependency-item depth-${Math.min(item.depth || 1, 4)}`;
+
+    // Header with name and depth
+    const header = document.createElement('div');
+    header.className = 'dependency-item-header';
+
+    const name = document.createElement('span');
+    name.className = 'dependency-item-name';
+
+    if (type === 'measure') {
+        name.textContent = item.name;
+    } else if (type === 'column') {
+        name.textContent = `${item.table}[${item.column}]`;
+    } else if (type === 'table') {
+        name.textContent = item.tableName;
+    } else if (type === 'visual') {
+        const displayName = item.visualName || item.visualId;
+        name.textContent = displayName;
+    }
+
+    header.appendChild(name);
+
+    // Depth badge
+    const depthBadge = document.createElement('span');
+    depthBadge.className = 'depth-badge';
+    depthBadge.textContent = `Depth: ${item.depth || 1}`;
+    header.appendChild(depthBadge);
+
+    div.appendChild(header);
+
+    // Add details for visuals
+    if (type === 'visual') {
+        const details = document.createElement('div');
+        details.className = 'dependency-item-details';
+        details.textContent = `Page: ${item.pageName} | Type: ${item.visualType}`;
+        div.appendChild(details);
+    }
+
+    // Add DAX expandable for measures
+    if (showDAX && item.dax) {
+        const daxExpandable = document.createElement('div');
+        daxExpandable.className = 'dax-expandable';
+
+        const daxBtn = document.createElement('button');
+        daxBtn.className = 'dax-toggle-btn';
+        daxBtn.textContent = 'Show DAX';
+
+        const daxCode = document.createElement('div');
+        daxCode.className = 'dax-code-container';
+        daxCode.innerHTML = `<pre>${escapeHtml(item.dax)}</pre>`;
+
+        daxBtn.onclick = () => toggleDAX(daxBtn, daxCode);
+
+        daxExpandable.appendChild(daxBtn);
+        daxExpandable.appendChild(daxCode);
+        div.appendChild(daxExpandable);
+    }
+
+    return div;
+}
+
+/**
+ * Toggle DAX code visibility
+ */
+function toggleDAX(button, codeContainer) {
+    if (codeContainer.classList.contains('expanded')) {
+        codeContainer.classList.remove('expanded');
+        button.textContent = 'Show DAX';
+    } else {
+        codeContainer.classList.add('expanded');
+        button.textContent = 'Hide DAX';
+    }
+}
+
+/**
+ * Handle section toggle
+ */
+function handleSectionToggle(event) {
+    const button = event.currentTarget;
+    const section = button.dataset.section;
+    const list = document.getElementById(`${section}List`);
+
+    button.classList.toggle('collapsed');
+    list.classList.toggle('collapsed');
+}
+
+/**
+ * Escape HTML to prevent XSS
+ */
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+/**
+ * Create result item element
+ */
+function createResultItem(header, details, code = null) {
+    const item = document.createElement('div');
+    item.className = 'result-item';
+
+    const headerEl = document.createElement('div');
+    headerEl.className = 'result-item-header';
+    headerEl.textContent = header;
+    item.appendChild(headerEl);
+
+    const detailsEl = document.createElement('div');
+    detailsEl.className = 'result-item-details';
+    detailsEl.textContent = details;
+    item.appendChild(detailsEl);
+
+    if (code) {
+        const codeEl = document.createElement('div');
+        codeEl.className = 'result-item-code';
+        codeEl.textContent = code.substring(0, 300) + (code.length > 300 ? '...' : '');
+        item.appendChild(codeEl);
+    }
+
+    return item;
+}
+
+/**
+ * Handle refactor type change
+ */
+function handleRefactorTypeChange() {
+    populateRefactorObjectSelect();
+    document.getElementById('previewResults').classList.add('hidden');
+}
+
+/**
+ * Handle refactor object change
+ */
+function handleRefactorObjectChange() {
+    const objectSelect = document.getElementById('refactorObjectSelect');
+    const newNameInput = document.getElementById('newNameInput');
+
+    newNameInput.value = '';
+    updatePreviewButton();
+}
+
+/**
+ * Handle new name input
+ */
+function handleNewNameInput() {
+    updatePreviewButton();
+}
+
+/**
+ * Update preview button state
+ */
+function updatePreviewButton() {
+    const objectSelect = document.getElementById('refactorObjectSelect');
+    const newNameInput = document.getElementById('newNameInput');
+    const previewBtn = document.getElementById('previewBtn');
+
+    previewBtn.disabled = !objectSelect.value || !newNameInput.value.trim();
+}
+
+/**
+ * Handle preview refactor button click
+ */
+async function handlePreviewRefactor() {
+    const typeSelect = document.getElementById('refactorTypeSelect');
+    const objectSelect = document.getElementById('refactorObjectSelect');
+    const newNameInput = document.getElementById('newNameInput');
+
+    const type = typeSelect.value;
+    const selectedOption = objectSelect.options[objectSelect.selectedIndex];
+    const newName = newNameInput.value.trim();
+
+    let oldName, tableName = null;
+
+    if (type === 'measure') {
+        oldName = selectedOption.value;
+    } else if (type === 'column') {
+        tableName = selectedOption.dataset.table;
+        oldName = selectedOption.dataset.column;
+    }
+
+    try {
+        // Preview changes
+        const changes = await refactoringEngine.previewRename(oldName, newName, type, tableName);
+
+        // Display preview
+        displayRefactorPreview(changes);
+
+        // Show preview results
+        document.getElementById('previewResults').classList.remove('hidden');
+
+    } catch (error) {
+        console.error('Error previewing refactor:', error);
+        showError(`Error: ${error.message}`);
+    }
+}
+
+/**
+ * Display refactor preview
+ */
+function displayRefactorPreview(changes) {
+    const changesList = document.getElementById('changesList');
+    changesList.innerHTML = '';
+
+    if (changes.length === 0) {
+        changesList.innerHTML = '<div class="empty-results">No changes needed</div>';
+        return;
+    }
+
+    changes.forEach(change => {
+        const item = createChangeItem(change);
+        changesList.appendChild(item);
+    });
+
+    // Set up apply/cancel buttons
+    const applyBtn = document.getElementById('applyChangesBtn');
+    const cancelBtn = document.getElementById('cancelChangesBtn');
+
+    applyBtn.onclick = handleApplyChanges;
+    cancelBtn.onclick = () => {
+        document.getElementById('previewResults').classList.add('hidden');
+    };
+}
+
+/**
+ * Create change item element
+ */
+function createChangeItem(change) {
+    const item = document.createElement('div');
+    item.className = 'change-item';
+
+    const header = document.createElement('div');
+    header.className = 'change-header';
+    header.textContent = `${change.file} - ${change.description}`;
+    item.appendChild(header);
+
+    const diff = document.createElement('div');
+    diff.className = 'change-diff';
+
+    const before = document.createElement('div');
+    before.className = 'diff-column diff-before';
+    before.innerHTML = `<h4>Before:</h4><div class="diff-code">${change.oldContent}</div>`;
+    diff.appendChild(before);
+
+    const after = document.createElement('div');
+    after.className = 'diff-column diff-after';
+    after.innerHTML = `<h4>After:</h4><div class="diff-code">${change.newContent}</div>`;
+    diff.appendChild(after);
+
+    item.appendChild(diff);
+
+    return item;
+}
+
+/**
+ * Handle apply changes button click
+ */
+async function handleApplyChanges() {
+    if (!confirm('Are you sure you want to apply these changes? This will modify your PBIP files.')) {
+        return;
+    }
+
+    try {
+        showLoading(true);
+
+        // Apply changes
+        const result = await refactoringEngine.applyChanges();
+
+        showLoading(false);
+        showSuccess(`Changes applied successfully! ${result.filesModified} files modified.`);
+
+        // Reload data
+        await loadPBIPFiles();
+
+        // Hide preview
+        document.getElementById('previewResults').classList.add('hidden');
+
+    } catch (error) {
+        console.error('Error applying changes:', error);
+        showError(`Error applying changes: ${error.message}`);
+        showLoading(false);
+    }
+}
+
+/**
+ * Handle export graph button click
+ */
+function handleExportGraph() {
+    graphVisualizer.exportAsSVG();
+}
+
+/**
+ * Switch tab
+ */
+function switchTab(tabName) {
+    // Update tab buttons
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    tabButtons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabName);
+    });
+
+    // Update tab panes
+    const tabPanes = document.querySelectorAll('.tab-pane');
+    tabPanes.forEach(pane => {
+        pane.classList.toggle('active', pane.id === tabName);
+    });
+}
+
+/**
+ * Create a picker modal for selection
+ */
+function createPickerModal({ title, subtitle, message, options, onSelect, onCancel }) {
+    const modal = document.createElement('div');
+    modal.className = 'picker-modal-overlay';
+
+    const content = document.createElement('div');
+    content.className = 'picker-modal-content';
+
+    let html = `<h2>${title}</h2>`;
+    if (subtitle) html += `<p class="subtitle">${subtitle}</p>`;
+    if (message) html += `<p class="message">${message}</p>`;
+
+    html += '<div class="picker-options">';
+
+    options.forEach((option, index) => {
+        if (option.type === 'section') {
+            html += `<div class="picker-section-header">${option.label}</div>`;
+        } else if (option.type === 'divider') {
+            html += '<hr class="picker-divider">';
+        } else {
+            const id = `option-${index}`;
+            const badge = option.badge ? `<span class="badge">${option.badge}</span>` : '';
+            const icon = option.icon ? `<span class="icon">${option.icon}</span>` : '';
+            const subtitle = option.subtitle ? `<span class="option-subtitle">${option.subtitle}</span>` : '';
+
+            html += `
+                <label class="picker-option ${option.recommended ? 'recommended' : ''}">
+                    <input type="radio" name="picker" value="${index}" id="${id}">
+                    <span class="option-content">
+                        ${icon}
+                        <span class="option-label">${option.label} ${badge}</span>
+                        ${subtitle}
+                    </span>
+                </label>
+            `;
+        }
+    });
+
+    html += '</div>';
+    html += `
+        <div class="picker-buttons">
+            <button class="btn btn-secondary" id="pickerCancelBtn">Cancel</button>
+            <button class="btn btn-primary" id="pickerConfirmBtn" disabled>Continue</button>
+        </div>
+    `;
+
+    content.innerHTML = html;
+    modal.appendChild(content);
+
+    // Event listeners
+    const radioInputs = content.querySelectorAll('input[type="radio"]');
+    const confirmBtn = content.querySelector('#pickerConfirmBtn');
+    const cancelBtn = content.querySelector('#pickerCancelBtn');
+
+    let selectedValue = null;
+
+    radioInputs.forEach((radio) => {
+        radio.addEventListener('change', () => {
+            const optionIndex = parseInt(radio.value);
+            selectedValue = options[optionIndex].value;
+            confirmBtn.disabled = false;
+        });
+    });
+
+    confirmBtn.addEventListener('click', () => {
+        onSelect(selectedValue);
+    });
+
+    cancelBtn.addEventListener('click', () => onCancel());
+
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) onCancel();
+    });
+
+    return modal;
+}
+
+/**
+ * Show semantic model picker modal
+ */
+async function showSemanticModelPicker(semanticModels) {
+    return new Promise((resolve, reject) => {
+        const modal = createPickerModal({
+            title: 'Select Semantic Model',
+            message: `Found ${semanticModels.length} Semantic Models. Choose one to analyze:`,
+            options: semanticModels.map(sm => ({
+                value: sm.handle,
+                label: sm.name,
+                subtitle: `Base name: ${sm.baseName}`
+            })),
+            onSelect: async (selectedHandle) => {
+                fileAccessManager.semanticModelHandle = selectedHandle;
+                document.body.removeChild(modal);
+                resolve();
+            },
+            onCancel: () => {
+                document.body.removeChild(modal);
+                showLoading(false);
+                reject(new Error('User cancelled'));
+            }
+        });
+
+        document.body.appendChild(modal);
+    });
+}
+
+/**
+ * Handle report discovery after semantic model selection
+ */
+async function handleReportDiscovery() {
+    showLoading(true, 'Discovering reports...');
+
+    const { matchingReports } =
+        await fileAccessManager.discoverReports(fileAccessManager.semanticModelHandle);
+
+    // Always show picker (even with 0 or 1 matching reports)
+    // This gives users the choice to proceed without a report
+    await showReportPicker(matchingReports);
+}
+
+/**
+ * Show report picker modal
+ */
+async function showReportPicker(matchingReports) {
+    const options = [];
+
+    // Add "no report" option FIRST to make it more prominent
+    options.push({
+        value: null,
+        label: 'None (Semantic Model only)',
+        icon: '📊',
+        subtitle: 'Analyze the Semantic Model without a Report'
+    });
+
+    // Add divider if there are any matching reports
+    if (matchingReports.length > 0) {
+        options.push({ type: 'divider' });
+        options.push({ type: 'section', label: 'Reports Connected to This Semantic Model' });
+
+        matchingReports.forEach(r => {
+            options.push({
+                value: r.handle,
+                label: r.name,
+                subtitle: `Dataset: ${r.datasetPath || 'Unknown'}`,
+                badge: '✓ Connected',
+                recommended: true
+            });
+        });
+    }
+
+    // Removed: "Other Reports" section - only show connected reports
+
+    return new Promise((resolve) => {
+        const modal = createPickerModal({
+            title: 'Select Report',
+            subtitle: `Semantic Model: ${fileAccessManager.semanticModelHandle.name}`,
+            options: options,
+            onSelect: async (selectedHandle) => {
+                fileAccessManager.reportHandle = selectedHandle;
+                document.body.removeChild(modal);
+                await loadPBIPFiles();
+                resolve();
+            },
+            onCancel: () => {
+                document.body.removeChild(modal);
+                showLoading(false);
+            }
+        });
+
+        document.body.appendChild(modal);
+    });
+}
+
+
+
+/**
+ * Show loading indicator
+ * @param {boolean} show - Whether to show or hide the loading indicator
+ * @param {string} message - Optional message to display
+ */
+function showLoading(show, message = 'Parsing PBIP files...') {
+    const indicator = document.getElementById('loadingIndicator');
+    const messageEl = document.getElementById('loadingMessage');
+
+    if (show) {
+        indicator.classList.remove('hidden');
+        if (messageEl && message) {
+            messageEl.textContent = message;
+        }
+    } else {
+        indicator.classList.add('hidden');
+    }
+}
+
+/**
+ * Show error message
+ */
+function showError(message) {
+    // Create modal for better error display
+    const modal = document.createElement('div');
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    modal.style.zIndex = '10000';
+
+    const content = document.createElement('div');
+    content.style.backgroundColor = 'white';
+    content.style.padding = '30px';
+    content.style.borderRadius = '8px';
+    content.style.maxWidth = '600px';
+    content.style.maxHeight = '80vh';
+    content.style.overflowY = 'auto';
+    content.style.boxShadow = '0 10px 40px rgba(0, 0, 0, 0.3)';
+
+    const title = document.createElement('h2');
+    title.textContent = 'Error';
+    title.style.color = '#d13438';
+    title.style.marginTop = '0';
+    title.style.marginBottom = '15px';
+    content.appendChild(title);
+
+    const messageEl = document.createElement('pre');
+    messageEl.textContent = message;
+    messageEl.style.whiteSpace = 'pre-wrap';
+    messageEl.style.fontFamily = 'inherit';
+    messageEl.style.fontSize = '14px';
+    messageEl.style.lineHeight = '1.6';
+    messageEl.style.margin = '0 0 20px 0';
+    content.appendChild(messageEl);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'OK';
+    closeBtn.className = 'btn btn-primary';
+    closeBtn.onclick = () => document.body.removeChild(modal);
+    content.appendChild(closeBtn);
+
+    modal.appendChild(content);
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    };
+
+    document.body.appendChild(modal);
+}
+
+/**
+ * Show success message
+ */
+function showSuccess(message) {
+    // Create modal for success message
+    const modal = document.createElement('div');
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    modal.style.zIndex = '10000';
+
+    const content = document.createElement('div');
+    content.style.backgroundColor = 'white';
+    content.style.padding = '30px';
+    content.style.borderRadius = '8px';
+    content.style.maxWidth = '500px';
+    content.style.boxShadow = '0 10px 40px rgba(0, 0, 0, 0.3)';
+    content.style.textAlign = 'center';
+
+    const title = document.createElement('h2');
+    title.textContent = '✓ Success';
+    title.style.color = '#107c10';
+    title.style.marginTop = '0';
+    title.style.marginBottom = '15px';
+    content.appendChild(title);
+
+    const messageEl = document.createElement('p');
+    messageEl.textContent = message;
+    messageEl.style.fontSize = '14px';
+    messageEl.style.lineHeight = '1.6';
+    messageEl.style.margin = '0 0 20px 0';
+    content.appendChild(messageEl);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'OK';
+    closeBtn.className = 'btn btn-success';
+    closeBtn.onclick = () => document.body.removeChild(modal);
+    content.appendChild(closeBtn);
+
+    modal.appendChild(content);
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    };
+
+    document.body.appendChild(modal);
+}
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', init);
