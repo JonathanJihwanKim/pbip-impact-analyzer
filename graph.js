@@ -494,30 +494,89 @@ class GraphVisualizer {
         // No-op for new design
     }
 
-    exportAsSVG() {
+    exportAsPNG() {
         if (!this.selectedNodeData) {
-            alert('No lineage to export. Please analyze an object first.');
+            this.showNotification('No lineage to export. Please analyze an object first.', 'error');
             return;
         }
+
+        // Show loading indicator
+        this.showNotification('Exporting lineage as PNG...', 'info');
 
         // Create a canvas snapshot of the container
         try {
             const html2canvas = window.html2canvas;
             if (typeof html2canvas === 'function') {
-                html2canvas(this.container).then(canvas => {
+                html2canvas(this.container, {
+                    backgroundColor: '#1e1e1e', // Match dark background
+                    scale: 2 // Higher resolution
+                }).then(canvas => {
                     const link = document.createElement('a');
-                    link.download = 'lineage-graph.png';
+                    // Generate filename with object name and timestamp
+                    const objectName = this.selectedNodeData.name || 'lineage';
+                    const timestamp = new Date().toISOString().slice(0, 10);
+                    link.download = `lineage-${objectName}-${timestamp}.png`;
                     link.href = canvas.toDataURL('image/png');
                     link.click();
+
+                    this.showNotification('Lineage exported successfully!', 'success');
+                }).catch(error => {
+                    console.error('Export error:', error);
+                    this.showNotification('Export failed. Try using browser screenshot (Ctrl+Shift+S).', 'error');
                 });
             } else {
-                // Fallback: alert user
-                alert('Export feature requires html2canvas library. For now, use browser screenshot (Ctrl+Shift+S in most browsers).');
+                this.showNotification('Export library not loaded. Try refreshing the page.', 'error');
             }
         } catch (error) {
             console.error('Export error:', error);
-            alert('Export failed. Use browser screenshot instead.');
+            this.showNotification('Export failed. Use browser screenshot instead.', 'error');
         }
+    }
+
+    // Keep old method name for backward compatibility
+    exportAsSVG() {
+        this.exportAsPNG();
+    }
+
+    /**
+     * Show a notification message
+     * @param {string} message - The message to display
+     * @param {string} type - 'info', 'success', or 'error'
+     */
+    showNotification(message, type = 'info') {
+        // Remove existing notification if any
+        const existing = document.querySelector('.export-notification');
+        if (existing) {
+            existing.remove();
+        }
+
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `export-notification export-notification-${type}`;
+        notification.textContent = message;
+
+        // Style the notification
+        Object.assign(notification.style, {
+            position: 'fixed',
+            bottom: '20px',
+            right: '20px',
+            padding: '12px 20px',
+            borderRadius: '6px',
+            color: 'white',
+            fontWeight: '500',
+            zIndex: '10000',
+            animation: 'fadeIn 0.3s ease',
+            backgroundColor: type === 'success' ? '#4CAF50' :
+                           type === 'error' ? '#f44336' : '#2196F3'
+        });
+
+        document.body.appendChild(notification);
+
+        // Auto-remove after 3 seconds (longer for errors)
+        setTimeout(() => {
+            notification.style.animation = 'fadeOut 0.3s ease';
+            setTimeout(() => notification.remove(), 300);
+        }, type === 'error' ? 5000 : 3000);
     }
 }
 

@@ -13,6 +13,7 @@ class DependencyAnalyzer {
         this.tables = [];
         this.visuals = [];
         this.relationships = [];
+        this.orphanedReferences = []; // Track references to non-existent objects
     }
 
     /**
@@ -137,6 +138,9 @@ class DependencyAnalyzer {
      * Build dependencies between measures
      */
     buildMeasureDependencies() {
+        // Clear orphaned references at the start
+        this.orphanedReferences = [];
+
         for (const measure of this.measures) {
             const measureNodeId = `Measure.${measure.name}`;
             const measureNode = this.dependencyGraph.nodes[measureNodeId];
@@ -172,6 +176,14 @@ class DependencyAnalyzer {
                         to: refNodeId,
                         type: 'measure-to-measure'
                     });
+                } else {
+                    // Track orphaned measure reference
+                    this.orphanedReferences.push({
+                        type: 'measure',
+                        referencedName: refName,
+                        inMeasure: measure.name,
+                        nodeId: measureNodeId
+                    });
                 }
             }
 
@@ -201,6 +213,15 @@ class DependencyAnalyzer {
                         from: measureNodeId,
                         to: colNodeId,
                         type: 'measure-to-column'
+                    });
+                } else {
+                    // Track orphaned column reference
+                    this.orphanedReferences.push({
+                        type: 'column',
+                        referencedTable: colRef.table,
+                        referencedColumn: colRef.column,
+                        inMeasure: measure.name,
+                        nodeId: measureNodeId
                     });
                 }
             }
@@ -679,8 +700,22 @@ class DependencyAnalyzer {
             columnCount: columns.length,
             visualCount: visuals.length,
             edgeCount: this.dependencyGraph.edges.length,
-            tableCount: new Set(columns.map(c => c.table)).size
+            tableCount: new Set(columns.map(c => c.table)).size,
+            orphanedCount: this.orphanedReferences.length,
+            orphanedReferences: this.orphanedReferences
         };
+    }
+
+    /**
+     * Get measures with orphaned references
+     * @returns {Array} List of measure names that have broken references
+     */
+    getMeasuresWithOrphanedRefs() {
+        const measuresWithOrphans = new Set();
+        for (const orphan of this.orphanedReferences) {
+            measuresWithOrphans.add(orphan.inMeasure);
+        }
+        return Array.from(measuresWithOrphans);
     }
 }
 

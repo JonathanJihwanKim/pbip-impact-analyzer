@@ -8,6 +8,7 @@ class RefactoringEngine {
         this.analyzer = dependencyAnalyzer;
         this.fileAccess = fileAccessManager;
         this.previewChanges = [];
+        this.backups = new Map(); // Store backups for rollback
     }
 
     /**
@@ -30,6 +31,12 @@ class RefactoringEngine {
 
         if (oldName === newName) {
             throw new Error('New name must be different from old name');
+        }
+
+        // Validate new name for reserved keywords and special characters
+        const nameValidation = this.validateNewName(newName, nodeType);
+        if (!nameValidation.valid) {
+            throw new Error(`Invalid new name: ${nameValidation.issues.join(', ')}`);
         }
 
         // Check for name conflicts
@@ -158,7 +165,11 @@ class RefactoringEngine {
                 type: 'measure-dax-reference',
                 description: `Update reference in measure "${affectedMeasureName}"`,
                 oldContent: oldDAX.substring(0, 200) + (oldDAX.length > 200 ? '...' : ''),
-                newContent: newDAX.substring(0, 200) + (newDAX.length > 200 ? '...' : '')
+                newContent: newDAX.substring(0, 200) + (newDAX.length > 200 ? '...' : ''),
+                // Store full content for actual application
+                fullOldContent: oldDAX,
+                fullNewContent: newDAX,
+                affectedMeasureName: affectedMeasureName
             };
 
             this.previewChanges.push(change);
@@ -182,7 +193,11 @@ class RefactoringEngine {
                 type: 'column-dax-reference',
                 description: `Update ${tableName}[${oldName}] reference in measure "${affectedMeasureName}"`,
                 oldContent: oldDAX.substring(0, 200) + (oldDAX.length > 200 ? '...' : ''),
-                newContent: newDAX.substring(0, 200) + (newDAX.length > 200 ? '...' : '')
+                newContent: newDAX.substring(0, 200) + (newDAX.length > 200 ? '...' : ''),
+                // Store full content for actual application
+                fullOldContent: oldDAX,
+                fullNewContent: newDAX,
+                affectedMeasureName: affectedMeasureName
             };
 
             this.previewChanges.push(change);
@@ -251,23 +266,45 @@ class RefactoringEngine {
 
     /**
      * Replace measure reference in DAX expression
+     * DAX is case-insensitive, so we use case-insensitive matching
      */
     replaceMeasureInDAX(dax, oldName, newName) {
-        // Replace [OldName] with [NewName]
-        const pattern = new RegExp(`\\[${this.escapeRegex(oldName)}\\]`, 'g');
+        // Replace [OldName] with [NewName] - case insensitive
+        const pattern = new RegExp(`\\[${this.escapeRegex(oldName)}\\]`, 'gi');
         return dax.replace(pattern, `[${newName}]`);
     }
 
     /**
      * Replace column reference in DAX expression
+     * Handles multiple formats: Table[Column], 'Table'[Column], 'Table Name'[Column]
      */
     replaceColumnInDAX(dax, tableName, oldColumnName, newColumnName) {
-        // Replace tableName[oldColumnName] with tableName[newColumnName]
-        const pattern1 = new RegExp(`${this.escapeRegex(tableName)}\\[${this.escapeRegex(oldColumnName)}\\]`, 'g');
-        const pattern2 = new RegExp(`'${this.escapeRegex(tableName)}'\\[${this.escapeRegex(oldColumnName)}\\]`, 'g');
+        let result = dax;
 
-        let result = dax.replace(pattern1, `${tableName}[${newColumnName}]`);
+        // Pattern 1: Unquoted table name - TableName[Column]
+        const pattern1 = new RegExp(
+            `${this.escapeRegex(tableName)}\\[${this.escapeRegex(oldColumnName)}\\]`,
+            'gi'
+        );
+        result = result.replace(pattern1, `${tableName}[${newColumnName}]`);
+
+        // Pattern 2: Single-quoted table name - 'Table Name'[Column]
+        const pattern2 = new RegExp(
+            `'${this.escapeRegex(tableName)}'\\[${this.escapeRegex(oldColumnName)}\\]`,
+            'gi'
+        );
         result = result.replace(pattern2, `'${tableName}'[${newColumnName}]`);
+
+        // Pattern 3: Table name might have spaces, need quotes - handle existing quoted refs
+        // This catches cases where the table name in the DAX has different quoting than stored
+        const escapedTable = this.escapeRegex(tableName);
+        const pattern3 = new RegExp(
+            `(['"]?)${escapedTable}\\1\\[${this.escapeRegex(oldColumnName)}\\]`,
+            'gi'
+        );
+        result = result.replace(pattern3, (match, quote) => {
+            return `${quote}${tableName}${quote}[${newColumnName}]`;
+        });
 
         return result;
     }
@@ -290,6 +327,9 @@ class RefactoringEngine {
             throw new Error('No changes to apply');
         }
 
+        // Clear any previous backups
+        this.backups.clear();
+
         try {
             // Group changes by file
             const changesByFile = {};
@@ -301,38 +341,168 @@ class RefactoringEngine {
                 changesByFile[change.file].push(change);
             }
 
+            const filesModified = [];
+
             // Apply changes file by file
             for (const [filePath, changes] of Object.entries(changesByFile)) {
                 await this.applyChangesToFile(filePath, changes);
+                filesModified.push(filePath);
             }
 
             console.log('All changes applied successfully');
 
+            // Clear backups after successful completion
+            this.clearBackups();
+
+            // Clear preview changes after successful application
+            const totalChanges = this.previewChanges.length;
+            this.previewChanges = [];
+
             return {
                 success: true,
-                filesModified: Object.keys(changesByFile).length,
-                totalChanges: this.previewChanges.length
+                filesModified: filesModified.length,
+                filesList: filesModified,
+                totalChanges: totalChanges
             };
 
         } catch (error) {
             console.error('Error applying changes:', error);
+
+            // Attempt to rollback if we have backups
+            if (this.backups.size > 0) {
+                console.log('Attempting rollback...');
+                try {
+                    await this.restoreBackups();
+                    console.log('Rollback completed');
+                    error.message = `${error.message} (changes were rolled back)`;
+                } catch (rollbackError) {
+                    console.error('Rollback failed:', rollbackError);
+                    error.message = `${error.message} (WARNING: rollback also failed - manual recovery may be needed)`;
+                }
+            }
+
             throw error;
         }
     }
 
     /**
+     * Get file handle from a relative path within the semantic model or report
+     * @param {string} filePath - Relative path like "definition/tables/Measure.tmdl"
+     * @returns {Promise<FileHandle>}
+     */
+    async getFileHandleFromPath(filePath) {
+        const parts = filePath.split('/');
+
+        // Determine if this is a semantic model file or report file
+        // Report files have paths like "definition/pages/..."
+        // Semantic model files have paths like "definition/tables/..." or "definition/relationships.tmdl"
+        const isReportFile = filePath.includes('/pages/');
+
+        let currentHandle = isReportFile
+            ? this.fileAccess.reportHandle
+            : this.fileAccess.semanticModelHandle;
+
+        if (!currentHandle) {
+            throw new Error(`No ${isReportFile ? 'report' : 'semantic model'} handle available`);
+        }
+
+        // Navigate through directories
+        for (let i = 0; i < parts.length - 1; i++) {
+            currentHandle = await currentHandle.getDirectoryHandle(parts[i]);
+        }
+
+        // Get the file handle
+        const fileName = parts[parts.length - 1];
+        return await currentHandle.getFileHandle(fileName);
+    }
+
+    /**
+     * Create backup of file content before modification
+     * @param {string} filePath
+     * @param {string} content
+     */
+    createBackup(filePath, content) {
+        this.backups.set(filePath, content);
+        console.log(`Backup created for ${filePath}`);
+    }
+
+    /**
+     * Restore all backed up files (rollback)
+     */
+    async restoreBackups() {
+        console.log(`Rolling back ${this.backups.size} files...`);
+
+        for (const [filePath, originalContent] of this.backups) {
+            try {
+                const fileHandle = await this.getFileHandleFromPath(filePath);
+                await this.fileAccess.writeFile(fileHandle, originalContent);
+                console.log(`Restored ${filePath}`);
+            } catch (error) {
+                console.error(`Failed to restore ${filePath}:`, error);
+            }
+        }
+
+        this.backups.clear();
+    }
+
+    /**
+     * Clear backups after successful operation
+     */
+    clearBackups() {
+        this.backups.clear();
+    }
+
+    /**
      * Apply changes to a specific file
+     * @param {string} filePath - Relative path to the file
+     * @param {Array} changes - Array of change objects to apply
      */
     async applyChangesToFile(filePath, changes) {
         console.log(`Applying ${changes.length} changes to ${filePath}`);
 
-        // This is a placeholder - actual implementation would need to:
-        // 1. Read the current file content
-        // 2. Apply all changes
-        // 3. Write the updated content back
+        try {
+            // 1. Get file handle
+            const fileHandle = await this.getFileHandleFromPath(filePath);
 
-        // For now, just log what would happen
-        console.warn('File write operations not yet implemented - this is a preview only');
+            // 2. Read current content
+            const file = await fileHandle.getFile();
+            let content = await file.text();
+
+            // 3. Create backup before modification
+            this.createBackup(filePath, content);
+
+            // 4. Apply all changes to this file
+            for (const change of changes) {
+                // For DAX changes, use the full content stored during preview
+                if (change.type === 'measure-dax-reference' || change.type === 'column-dax-reference') {
+                    // Use full content for DAX replacements (oldContent/newContent are truncated for display)
+                    if (change.fullOldContent && change.fullNewContent) {
+                        if (content.includes(change.fullOldContent)) {
+                            content = content.replace(change.fullOldContent, change.fullNewContent);
+                            console.log(`  Applied: ${change.description}`);
+                        } else {
+                            console.warn(`  DAX pattern not found for: ${change.affectedMeasureName}`);
+                        }
+                    }
+                } else {
+                    // Simple string replacement for definitions and visual references
+                    if (content.includes(change.oldContent)) {
+                        content = content.split(change.oldContent).join(change.newContent);
+                        console.log(`  Applied: ${change.description}`);
+                    } else {
+                        console.warn(`  Pattern not found: ${change.oldContent}`);
+                    }
+                }
+            }
+
+            // 5. Write updated content back
+            await this.fileAccess.writeFile(fileHandle, content);
+            console.log(`Successfully updated ${filePath}`);
+
+        } catch (error) {
+            console.error(`Error applying changes to ${filePath}:`, error);
+            throw new Error(`Failed to update ${filePath}: ${error.message}`);
+        }
     }
 
     /**
@@ -341,6 +511,7 @@ class RefactoringEngine {
     validateChanges() {
         // Check for potential issues
         const issues = [];
+        const warnings = [];
 
         // Check for duplicate changes
         const changeKeys = new Set();
@@ -354,7 +525,79 @@ class RefactoringEngine {
 
         return {
             valid: issues.length === 0,
-            issues: issues
+            issues: issues,
+            warnings: warnings
+        };
+    }
+
+    /**
+     * Validate a new name for measures or columns
+     * @param {string} newName - The proposed new name
+     * @param {string} nodeType - "measure" or "column"
+     * @returns {Object} Validation result with valid flag and issues array
+     */
+    validateNewName(newName, nodeType) {
+        const issues = [];
+        const warnings = [];
+
+        // DAX reserved keywords (partial list of most common)
+        const daxReservedKeywords = [
+            'TRUE', 'FALSE', 'AND', 'OR', 'NOT', 'IN', 'VAR', 'RETURN',
+            'DEFINE', 'MEASURE', 'EVALUATE', 'ORDER', 'BY', 'ASC', 'DESC',
+            'CALCULATE', 'FILTER', 'ALL', 'VALUES', 'DISTINCT', 'RELATED',
+            'SUM', 'AVERAGE', 'COUNT', 'MIN', 'MAX', 'IF', 'SWITCH', 'BLANK',
+            'TABLE', 'COLUMN', 'ROW', 'SUMMARIZE', 'ADDCOLUMNS', 'SELECTCOLUMNS'
+        ];
+
+        // TMDL reserved keywords
+        const tmdlReservedKeywords = [
+            'table', 'column', 'measure', 'relationship', 'partition',
+            'expression', 'formatString', 'isHidden', 'dataType', 'sourceColumn'
+        ];
+
+        // Check if empty
+        if (!newName || newName.trim().length === 0) {
+            issues.push('Name cannot be empty');
+            return { valid: false, issues, warnings };
+        }
+
+        const trimmedName = newName.trim();
+
+        // Check for reserved keywords (case-insensitive)
+        const upperName = trimmedName.toUpperCase();
+        if (daxReservedKeywords.includes(upperName)) {
+            issues.push(`"${trimmedName}" is a DAX reserved keyword`);
+        }
+
+        if (tmdlReservedKeywords.includes(trimmedName.toLowerCase())) {
+            issues.push(`"${trimmedName}" is a TMDL reserved keyword`);
+        }
+
+        // Check for problematic characters
+        const invalidChars = /[[\]{}'"\\\/\n\r\t]/;
+        if (invalidChars.test(trimmedName)) {
+            issues.push('Name contains invalid characters: [ ] { } \' " \\ / or line breaks');
+        }
+
+        // Check for leading/trailing spaces
+        if (newName !== trimmedName) {
+            warnings.push('Name has leading or trailing spaces which will be trimmed');
+        }
+
+        // Check length
+        if (trimmedName.length > 100) {
+            warnings.push('Name is very long (>100 characters) which may cause display issues');
+        }
+
+        // Check if starts with number
+        if (/^\d/.test(trimmedName)) {
+            warnings.push('Name starts with a number which may cause issues in some DAX contexts');
+        }
+
+        return {
+            valid: issues.length === 0,
+            issues: issues,
+            warnings: warnings
         };
     }
 }

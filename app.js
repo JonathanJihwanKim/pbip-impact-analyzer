@@ -173,34 +173,49 @@ async function loadPBIPFiles() {
     console.log('Loading PBIP files...');
 
     // Read semantic model files
+    showLoading(true, 'Reading semantic model files...');
     const semanticModelFiles = await fileAccessManager.readSemanticModelFiles();
 
     // Parse measures
+    showLoading(true, 'Parsing measures...');
     if (semanticModelFiles.measures) {
         parsedData.measures = TMDLParser.parseMeasuresTMDL(semanticModelFiles.measures.content);
     }
 
     // Parse tables
+    showLoading(true, `Parsing ${semanticModelFiles.tables.length} tables...`);
     parsedData.tables = [];
-    for (const tableFile of semanticModelFiles.tables) {
+    for (let i = 0; i < semanticModelFiles.tables.length; i++) {
+        const tableFile = semanticModelFiles.tables[i];
+        if (i % 5 === 0) { // Update every 5 tables to avoid too many DOM updates
+            showLoading(true, `Parsing tables (${i + 1}/${semanticModelFiles.tables.length})...`);
+        }
         const tableData = TMDLParser.parseTableTMDL(tableFile.content, tableFile.fileName);
         parsedData.tables.push(tableData);
     }
 
     // Parse relationships
+    showLoading(true, 'Parsing relationships...');
     if (semanticModelFiles.relationships) {
         parsedData.relationships = TMDLParser.parseRelationshipsTMDL(semanticModelFiles.relationships.content);
     }
 
     // Read report files
+    showLoading(true, 'Reading report files...');
     const reportFiles = await fileAccessManager.readReportFiles();
 
     // Store pages for display name lookup
     parsedData.pages = reportFiles.pages || [];
 
     // Parse visuals
+    const totalVisuals = reportFiles.visuals.length;
+    showLoading(true, `Parsing ${totalVisuals} visuals...`);
     parsedData.visuals = [];
-    for (const visualFile of reportFiles.visuals) {
+    for (let i = 0; i < reportFiles.visuals.length; i++) {
+        const visualFile = reportFiles.visuals[i];
+        if (i % 10 === 0) { // Update every 10 visuals
+            showLoading(true, `Parsing visuals (${i + 1}/${totalVisuals})...`);
+        }
         const visualData = JSONParser.parseVisual(visualFile.content);
         parsedData.visuals.push({
             pageId: visualFile.pageId,
@@ -213,7 +228,16 @@ async function loadPBIPFiles() {
     }
 
     // Build dependency graph
+    showLoading(true, 'Building dependency graph...');
+
+    // Build dependency graph
     dependencyAnalyzer.buildDependencyGraph(parsedData);
+
+    // Check for circular dependencies
+    const circularDeps = dependencyAnalyzer.detectCircularDependencies();
+    if (circularDeps.length > 0) {
+        displayCircularDependencyWarning(circularDeps);
+    }
 
     // Update UI
     updateModelStats();
@@ -269,6 +293,16 @@ function updateModelStats() {
     document.getElementById('tableCount').textContent = stats.tableCount;
     document.getElementById('columnCount').textContent = stats.columnCount;
     document.getElementById('visualCount').textContent = stats.visualCount;
+
+    // Show orphaned references warning if any exist
+    if (stats.orphanedCount > 0) {
+        displayOrphanedReferencesWarning(stats);
+    }
+
+    // Show large model warning if thresholds exceeded
+    if (stats.measureCount > 500 || stats.columnCount > 1000 || stats.totalNodes > 2000) {
+        displayLargeModelWarning(stats);
+    }
 }
 
 /**
@@ -435,10 +469,10 @@ function displayImpactResults(result) {
     }
 
     // Display upstream dependencies
-    displayUpstreamDependencies(result.upstream);
+    displayUpstreamDependencies(result.upstream, result.targetName, result.targetType);
 
     // Display downstream dependents
-    displayDownstreamDependents(result.downstream);
+    displayDownstreamDependents(result.downstream, result.targetName, result.targetType);
 
     // Setup section toggle handlers
     document.querySelectorAll('.section-toggle').forEach(btn => {
@@ -474,6 +508,12 @@ function updateImpactActionButtons(result) {
             switchTab('graph');
         };
     }
+
+    // Setup Export CSV button
+    const csvBtn = document.getElementById('exportCSVBtn');
+    if (csvBtn) {
+        csvBtn.onclick = () => exportImpactAsCSV(result);
+    }
 }
 
 /**
@@ -505,8 +545,11 @@ function proceedToRefactoring(result) {
 
 /**
  * Display upstream dependencies
+ * @param {Object} upstream - Upstream dependencies object
+ * @param {string} targetName - Name of the analyzed object
+ * @param {string} targetType - Type of the analyzed object (measure/column)
  */
-function displayUpstreamDependencies(upstream) {
+function displayUpstreamDependencies(upstream, targetName, targetType) {
     // Update counts
     document.getElementById('upstreamCount').textContent = upstream.totalCount || 0;
     document.getElementById('upstreamTablesCount').textContent = upstream.tables.length;
@@ -517,7 +560,7 @@ function displayUpstreamDependencies(upstream) {
     const tablesContainer = document.getElementById('upstreamTablesList');
     tablesContainer.innerHTML = '';
     if (upstream.tables.length === 0) {
-        tablesContainer.innerHTML = '<div class="empty-results">No tables</div>';
+        tablesContainer.innerHTML = `<div class="empty-results">No table dependencies for "${targetName}"</div>`;
     } else {
         upstream.tables.forEach(table => {
             const item = createDependencyItem(table, 'table');
@@ -529,7 +572,8 @@ function displayUpstreamDependencies(upstream) {
     const columnsContainer = document.getElementById('upstreamColumnsList');
     columnsContainer.innerHTML = '';
     if (upstream.columns.length === 0) {
-        columnsContainer.innerHTML = '<div class="empty-results">No columns</div>';
+        const hint = targetType === 'measure' ? ' - this measure uses no column references' : '';
+        columnsContainer.innerHTML = `<div class="empty-results">No column dependencies${hint}</div>`;
     } else {
         upstream.columns.forEach(column => {
             const item = createDependencyItem(column, 'column');
@@ -541,7 +585,8 @@ function displayUpstreamDependencies(upstream) {
     const measuresContainer = document.getElementById('upstreamMeasuresList');
     measuresContainer.innerHTML = '';
     if (upstream.measures.length === 0) {
-        measuresContainer.innerHTML = '<div class="empty-results">No measures</div>';
+        const hint = targetType === 'measure' ? ' - this measure uses no [OtherMeasure] references' : '';
+        measuresContainer.innerHTML = `<div class="empty-results">No measure dependencies${hint}</div>`;
     } else {
         upstream.measures.forEach(measure => {
             const item = createDependencyItem(measure, 'measure', true);
@@ -552,8 +597,11 @@ function displayUpstreamDependencies(upstream) {
 
 /**
  * Display downstream dependents
+ * @param {Object} downstream - Downstream dependents object
+ * @param {string} targetName - Name of the analyzed object
+ * @param {string} targetType - Type of the analyzed object (measure/column)
  */
-function displayDownstreamDependents(downstream) {
+function displayDownstreamDependents(downstream, targetName, targetType) {
     // Update counts
     document.getElementById('downstreamCount').textContent = downstream.totalCount || 0;
     document.getElementById('downstreamMeasuresCount').textContent = downstream.measures.length;
@@ -563,7 +611,7 @@ function displayDownstreamDependents(downstream) {
     const measuresContainer = document.getElementById('downstreamMeasuresList');
     measuresContainer.innerHTML = '';
     if (downstream.measures.length === 0) {
-        measuresContainer.innerHTML = '<div class="empty-results">No dependent measures</div>';
+        measuresContainer.innerHTML = `<div class="empty-results">No measures reference "${targetName}" - safe to rename!</div>`;
     } else {
         downstream.measures.forEach(measure => {
             const item = createDependencyItem(measure, 'measure', true);
@@ -575,7 +623,7 @@ function displayDownstreamDependents(downstream) {
     const visualsContainer = document.getElementById('downstreamVisualsList');
     visualsContainer.innerHTML = '';
     if (downstream.visuals.length === 0) {
-        visualsContainer.innerHTML = '<div class="empty-results">No dependent visuals</div>';
+        visualsContainer.innerHTML = `<div class="empty-results">No visuals use "${targetName}" directly</div>`;
     } else {
         downstream.visuals.forEach(visual => {
             const item = createDependencyItem(visual, 'visual');
@@ -782,7 +830,9 @@ async function handlePreviewRefactor() {
 
     } catch (error) {
         console.error('Error previewing refactor:', error);
-        showError(`Error: ${error.message}`);
+        const oldName = document.getElementById('refactorObjectSelect').selectedOptions[0]?.textContent || 'selected object';
+        const newName = document.getElementById('newNameInput').value || 'new name';
+        showError(`Error previewing rename from "${oldName}" to "${newName}":\n\n${error.message}\n\nPlease check the name and try again.`);
     }
 }
 
@@ -859,7 +909,7 @@ async function handleApplyChanges() {
     }
 
     try {
-        showLoading(true);
+        showLoading(true, 'Applying changes to files...');
 
         // Apply changes
         const result = await refactoringEngine.applyChanges();
@@ -875,7 +925,16 @@ async function handleApplyChanges() {
 
     } catch (error) {
         console.error('Error applying changes:', error);
-        showError(`Error applying changes: ${error.message}`);
+
+        // Provide detailed error message with context
+        let errorDetails = error.message;
+        if (error.message.includes('rollback')) {
+            errorDetails += '\n\nYour original files have been restored.';
+        } else if (error.message.includes('permission')) {
+            errorDetails += '\n\nTip: Make sure no other application has the files open.';
+        }
+
+        showError(`Failed to apply refactoring changes:\n\n${errorDetails}`);
         showLoading(false);
     }
 }
@@ -885,6 +944,134 @@ async function handleApplyChanges() {
  */
 function handleExportGraph() {
     graphVisualizer.exportAsSVG();
+}
+
+/**
+ * Export impact analysis results as CSV
+ * @param {Object} result - The impact analysis result object
+ */
+function exportImpactAsCSV(result) {
+    if (!result) {
+        alert('No impact analysis results to export');
+        return;
+    }
+
+    // Build CSV data
+    const rows = [];
+
+    // Header row
+    rows.push(['Selected Object', 'Object Type', 'Direction', 'Dependency Name', 'Dependency Type', 'Depth']);
+
+    const objectName = result.targetName;
+    const objectType = result.targetType;
+
+    // Add upstream dependencies
+    if (result.upstream) {
+        // Tables
+        if (result.upstream.tables) {
+            result.upstream.tables.forEach(item => {
+                rows.push([objectName, objectType, 'Upstream', item.name, 'Table', item.depth || 1]);
+            });
+        }
+
+        // Columns
+        if (result.upstream.columns) {
+            result.upstream.columns.forEach(item => {
+                const colName = item.table ? `${item.table}[${item.name}]` : item.name;
+                rows.push([objectName, objectType, 'Upstream', colName, 'Column', item.depth || 1]);
+            });
+        }
+
+        // Measures
+        if (result.upstream.measures) {
+            result.upstream.measures.forEach(item => {
+                rows.push([objectName, objectType, 'Upstream', item.name, 'Measure', item.depth || 1]);
+            });
+        }
+    }
+
+    // Add downstream dependencies
+    if (result.downstream) {
+        // Measures
+        if (result.downstream.measures) {
+            result.downstream.measures.forEach(item => {
+                rows.push([objectName, objectType, 'Downstream', item.name, 'Measure', item.depth || 1]);
+            });
+        }
+
+        // Visuals
+        if (result.downstream.visuals) {
+            result.downstream.visuals.forEach(item => {
+                const visualName = item.pageName ? `${item.pageName}/${item.visualId}` : item.visualId;
+                rows.push([objectName, objectType, 'Downstream', visualName, 'Visual', item.depth || 1]);
+            });
+        }
+    }
+
+    // Convert to CSV string
+    const csvContent = rows.map(row =>
+        row.map(cell => {
+            // Escape quotes and wrap in quotes if contains comma, quote, or newline
+            const cellStr = String(cell);
+            if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
+                return `"${cellStr.replace(/"/g, '""')}"`;
+            }
+            return cellStr;
+        }).join(',')
+    ).join('\n');
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const timestamp = new Date().toISOString().slice(0, 10);
+    link.download = `impact-report-${objectName}-${timestamp}.csv`;
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    URL.revokeObjectURL(link.href);
+
+    // Show success notification
+    showNotification(`CSV exported: ${rows.length - 1} dependencies`, 'success');
+}
+
+/**
+ * Show a notification message (reusable)
+ * @param {string} message - The message to display
+ * @param {string} type - 'info', 'success', or 'error'
+ */
+function showNotification(message, type = 'info') {
+    // Remove existing notification if any
+    const existing = document.querySelector('.app-notification');
+    if (existing) {
+        existing.remove();
+    }
+
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `app-notification app-notification-${type}`;
+    notification.textContent = message;
+
+    // Style the notification
+    Object.assign(notification.style, {
+        position: 'fixed',
+        bottom: '20px',
+        right: '20px',
+        padding: '12px 20px',
+        borderRadius: '6px',
+        color: 'white',
+        fontWeight: '500',
+        zIndex: '10000',
+        animation: 'fadeIn 0.3s ease',
+        backgroundColor: type === 'success' ? '#4CAF50' :
+                       type === 'error' ? '#f44336' : '#2196F3'
+    });
+
+    document.body.appendChild(notification);
+
+    // Auto-remove after 3 seconds (longer for errors)
+    setTimeout(() => {
+        notification.style.animation = 'fadeOut 0.3s ease';
+        setTimeout(() => notification.remove(), 300);
+    }, type === 'error' ? 5000 : 3000);
 }
 
 /**
@@ -1235,6 +1422,209 @@ function showSuccess(message) {
     };
 
     document.body.appendChild(modal);
+}
+
+/**
+ * Display warning about large model size
+ * @param {Object} stats - Statistics object
+ */
+function displayLargeModelWarning(stats) {
+    console.warn('Large model detected:', stats);
+
+    // Create a dismissible performance warning
+    const banner = document.createElement('div');
+    banner.className = 'large-model-warning-banner';
+    Object.assign(banner.style, {
+        position: 'fixed',
+        top: '0',
+        left: '0',
+        right: '0',
+        padding: '10px 20px',
+        backgroundColor: '#f8d7da',
+        borderBottom: '2px solid #dc3545',
+        color: '#721c24',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        zIndex: '9997',
+        fontSize: '13px'
+    });
+
+    const warningIcon = document.createElement('span');
+    warningIcon.textContent = '⚡ ';
+    warningIcon.style.marginRight = '10px';
+
+    const message = document.createElement('span');
+    const details = [];
+    if (stats.measureCount > 500) details.push(`${stats.measureCount} measures`);
+    if (stats.columnCount > 1000) details.push(`${stats.columnCount} columns`);
+
+    message.innerHTML = `<strong>Large Model:</strong> ${details.join(', ')}. Impact analysis may be slow. Consider analyzing specific objects rather than full graph traversals.`;
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '×';
+    Object.assign(closeBtn.style, {
+        background: 'none',
+        border: 'none',
+        fontSize: '18px',
+        cursor: 'pointer',
+        color: '#721c24',
+        marginLeft: '20px'
+    });
+    closeBtn.onclick = () => banner.remove();
+
+    banner.appendChild(warningIcon);
+    banner.appendChild(message);
+    banner.appendChild(closeBtn);
+
+    // Insert at top, adjusting for any existing banners
+    const existingBanners = document.querySelectorAll('.circular-warning-banner, .orphaned-warning-banner');
+    if (existingBanners.length > 0) {
+        const lastBanner = existingBanners[existingBanners.length - 1];
+        lastBanner.insertAdjacentElement('afterend', banner);
+    } else {
+        document.body.insertBefore(banner, document.body.firstChild);
+    }
+}
+
+/**
+ * Display warning about orphaned references found in the model
+ * @param {Object} stats - Statistics object containing orphanedReferences
+ */
+function displayOrphanedReferencesWarning(stats) {
+    const orphans = stats.orphanedReferences;
+    const measuresWithOrphans = new Set(orphans.map(o => o.inMeasure));
+
+    console.warn(`Found ${orphans.length} orphaned references in ${measuresWithOrphans.size} measures:`, orphans);
+
+    // Create a dismissible info banner (less severe than circular deps)
+    const banner = document.createElement('div');
+    banner.className = 'orphaned-warning-banner';
+    Object.assign(banner.style, {
+        position: 'fixed',
+        top: '0',
+        left: '0',
+        right: '0',
+        padding: '10px 20px',
+        backgroundColor: '#cce5ff',
+        borderBottom: '2px solid #0d6efd',
+        color: '#004085',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        zIndex: '9998',
+        fontSize: '13px'
+    });
+
+    const warningIcon = document.createElement('span');
+    warningIcon.textContent = 'ℹ️ ';
+    warningIcon.style.marginRight = '10px';
+
+    const message = document.createElement('span');
+    const measureList = Array.from(measuresWithOrphans).slice(0, 3);
+    const moreCount = measuresWithOrphans.size - 3;
+
+    message.innerHTML = `<strong>Broken References:</strong> ${orphans.length} reference(s) to non-existent objects in measures: `;
+    message.innerHTML += measureList.map(m => `<code style="background:#b8daff;padding:2px 6px;border-radius:3px;margin:0 2px;">${m}</code>`).join(', ');
+    if (moreCount > 0) {
+        message.innerHTML += ` and ${moreCount} more`;
+    }
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '×';
+    Object.assign(closeBtn.style, {
+        background: 'none',
+        border: 'none',
+        fontSize: '18px',
+        cursor: 'pointer',
+        color: '#004085',
+        marginLeft: '20px'
+    });
+    closeBtn.onclick = () => banner.remove();
+
+    banner.appendChild(warningIcon);
+    banner.appendChild(message);
+    banner.appendChild(closeBtn);
+
+    // Insert after any existing circular warning banner
+    const existingBanner = document.querySelector('.circular-warning-banner');
+    if (existingBanner) {
+        existingBanner.insertAdjacentElement('afterend', banner);
+    } else {
+        document.body.insertBefore(banner, document.body.firstChild);
+    }
+}
+
+/**
+ * Display warning about circular dependencies found in the model
+ * @param {Array} circularDeps - Array of circular dependency chains
+ */
+function displayCircularDependencyWarning(circularDeps) {
+    console.warn(`Found ${circularDeps.length} circular dependency chains:`, circularDeps);
+
+    // Create a dismissible warning banner
+    const banner = document.createElement('div');
+    banner.className = 'circular-warning-banner';
+    Object.assign(banner.style, {
+        position: 'fixed',
+        top: '0',
+        left: '0',
+        right: '0',
+        padding: '12px 20px',
+        backgroundColor: '#fff3cd',
+        borderBottom: '2px solid #ffc107',
+        color: '#856404',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        zIndex: '9999',
+        fontSize: '14px'
+    });
+
+    // Format the circular dependencies for display
+    const chains = circularDeps.map(chain => {
+        // Clean up the node IDs for display
+        return chain.map(nodeId => {
+            if (nodeId.startsWith('Measure.')) {
+                return nodeId.replace('Measure.', '');
+            }
+            return nodeId;
+        }).join(' → ');
+    });
+
+    const warningIcon = document.createElement('span');
+    warningIcon.textContent = '⚠️ ';
+    warningIcon.style.marginRight = '10px';
+
+    const message = document.createElement('span');
+    message.innerHTML = `<strong>Circular Dependencies Detected:</strong> ${circularDeps.length} cycle(s) found. `;
+
+    if (circularDeps.length <= 3) {
+        // Show all chains if there are 3 or fewer
+        message.innerHTML += chains.map(c => `<code style="background:#ffeeba;padding:2px 6px;border-radius:3px;margin:0 4px;">${c}</code>`).join(' ');
+    } else {
+        // Show first 2 and count for the rest
+        message.innerHTML += chains.slice(0, 2).map(c => `<code style="background:#ffeeba;padding:2px 6px;border-radius:3px;margin:0 4px;">${c}</code>`).join(' ');
+        message.innerHTML += ` and ${circularDeps.length - 2} more...`;
+    }
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '×';
+    Object.assign(closeBtn.style, {
+        background: 'none',
+        border: 'none',
+        fontSize: '20px',
+        cursor: 'pointer',
+        color: '#856404',
+        marginLeft: '20px'
+    });
+    closeBtn.onclick = () => banner.remove();
+
+    banner.appendChild(warningIcon);
+    banner.appendChild(message);
+    banner.appendChild(closeBtn);
+
+    document.body.insertBefore(banner, document.body.firstChild);
 }
 
 // Initialize when DOM is ready
