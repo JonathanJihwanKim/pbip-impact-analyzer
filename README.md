@@ -1,9 +1,9 @@
 # PBIP Impact Analyzer
 
-![GitHub Stars](https://img.shields.io/github/stars/JonathanJihwanKim/pbip-impact-analyzer)
-![GitHub Forks](https://img.shields.io/github/forks/JonathanJihwanKim/pbip-impact-analyzer)
-![Visitors](https://api.visitorbadge.io/api/visitors?path=JonathanJihwanKim%2Fpbip-impact-analyzer&label=visitors&countColor=%23263759)
-![License: MIT](https://img.shields.io/github/license/JonathanJihwanKim/pbip-impact-analyzer)
+<img src="https://img.shields.io/github/stars/JonathanJihwanKim/pbip-impact-analyzer" alt="GitHub Stars" height="20">
+<img src="https://img.shields.io/github/forks/JonathanJihwanKim/pbip-impact-analyzer" alt="GitHub Forks" height="20">
+<img src="https://api.visitorbadge.io/api/visitors?path=JonathanJihwanKim%2Fpbip-impact-analyzer&label=visitors&countColor=%23263759" alt="Visitors" height="20">
+<img src="https://img.shields.io/github/license/JonathanJihwanKim/pbip-impact-analyzer" alt="License: MIT" height="20">
 
 Safely refactor Power BI semantic models with confidence.
 
