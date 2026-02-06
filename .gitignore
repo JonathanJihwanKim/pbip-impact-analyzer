@@ -30,6 +30,9 @@ yarn-error.log*
 *.temp
 .cache/
 
+# Windows reserved device names (artifact from mkdir -p)
+nul
+
 # Test PBIP folders (if you want to exclude sample data)
 # test-data/
 # sample-pbip/

@@ -80,7 +80,7 @@ class GraphVisualizer {
 
         const header = document.createElement('div');
         header.className = 'lineage-section-header';
-        header.innerHTML = '<span class="section-icon">&#8592;</span> Depends On';
+        header.innerHTML = '<span class="material-symbols-outlined section-icon">arrow_back</span> Depends On';
         section.appendChild(header);
 
         const content = document.createElement('div');
@@ -88,9 +88,9 @@ class GraphVisualizer {
 
         // Group by type
         const groups = [
-            { type: 'tables', label: 'Tables', items: upstream.tables, color: '#9C27B0' },
-            { type: 'columns', label: 'Columns', items: upstream.columns, color: '#2196F3' },
-            { type: 'measures', label: 'Measures', items: upstream.measures, color: '#4CAF50' }
+            { type: 'tables', label: 'Tables', items: upstream.tables, color: '#7b5ea7' },
+            { type: 'columns', label: 'Columns', items: upstream.columns, color: '#4a7c59' },
+            { type: 'measures', label: 'Measures', items: upstream.measures, color: '#1a3a5c' }
         ];
 
         let hasItems = false;
@@ -172,7 +172,7 @@ class GraphVisualizer {
 
         const header = document.createElement('div');
         header.className = 'lineage-section-header';
-        header.innerHTML = 'Used By <span class="section-icon">&#8594;</span>';
+        header.innerHTML = 'Used By <span class="material-symbols-outlined section-icon">arrow_forward</span>';
         section.appendChild(header);
 
         const content = document.createElement('div');
@@ -183,14 +183,14 @@ class GraphVisualizer {
         // Handle measures with generic group
         if (downstream.measures && downstream.measures.length > 0) {
             hasItems = true;
-            const measuresGroup = this.createNodeGroup('Measures', downstream.measures, '#4CAF50', 'downstream');
+            const measuresGroup = this.createNodeGroup('Measures', downstream.measures, '#1a3a5c', 'downstream');
             content.appendChild(measuresGroup);
         }
 
         // Handle visuals with page grouping
         if (downstream.visuals && downstream.visuals.length > 0) {
             hasItems = true;
-            const visualsGroup = this.createPageGroupedVisuals(downstream.visuals, '#FF9800', 'downstream');
+            const visualsGroup = this.createPageGroupedVisuals(downstream.visuals, '#c89632', 'downstream');
             content.appendChild(visualsGroup);
         }
 
@@ -441,10 +441,10 @@ class GraphVisualizer {
      */
     getTypeIcon(type) {
         const icons = {
-            measure: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M1 4v8h14V4H1zm0-1h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm6 3h2v5H7V6z"/></svg>',
-            column: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6"/></svg>',
-            table: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2zm15 2h-4v3h4V4zm0 4h-4v3h4V8zm0 4h-4v3h3a1 1 0 0 0 1-1v-2zm-5 3v-3H6v3h4zm-5 0v-3H1v2a1 1 0 0 0 1 1h3zm-4-4h4V8H1v3zm0-4h4V4H1v3zm5-3v3h4V4H6zm4 4H6v3h4V8z"/></svg>',
-            visual: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M1 1v14h14V1H1zm13 13H2V2h12v12zM3 3h4v4H3V3zm0 6h4v4H3V9zm6-6h4v4H9V3zm0 6h4v4H9V9z"/></svg>'
+            measure: '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">calculate</span>',
+            column: '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">view_column</span>',
+            table: '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">table_chart</span>',
+            visual: '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">dashboard</span>'
         };
         return icons[type] || '';
     }
@@ -456,10 +456,7 @@ class GraphVisualizer {
         this.container.innerHTML = `
             <div class="lineage-placeholder">
                 <div class="placeholder-icon">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/>
-                        <path d="M12 6v6l4 2"/>
-                    </svg>
+                    <span class="material-symbols-outlined placeholder-mat-icon">schedule</span>
                 </div>
                 <p>${message}</p>
             </div>
@@ -566,8 +563,8 @@ class GraphVisualizer {
             fontWeight: '500',
             zIndex: '10000',
             animation: 'fadeIn 0.3s ease',
-            backgroundColor: type === 'success' ? '#4CAF50' :
-                           type === 'error' ? '#f44336' : '#2196F3'
+            backgroundColor: type === 'success' ? '#4a7c59' :
+                           type === 'error' ? '#c1440e' : '#1a3a5c'
         });
 
         document.body.appendChild(notification);

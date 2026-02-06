@@ -1061,8 +1061,8 @@ function showNotification(message, type = 'info') {
         fontWeight: '500',
         zIndex: '10000',
         animation: 'fadeIn 0.3s ease',
-        backgroundColor: type === 'success' ? '#4CAF50' :
-                       type === 'error' ? '#f44336' : '#2196F3'
+        backgroundColor: type === 'success' ? '#4a7c59' :
+                       type === 'error' ? '#c1440e' : '#1a3a5c'
     });
 
     document.body.appendChild(notification);
@@ -1247,7 +1247,7 @@ async function showReportPicker(matchingReports) {
     options.push({
         value: null,
         label: 'None (Semantic Model only)',
-        icon: '📊',
+        icon: '<span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle">analytics</span>',
         subtitle: 'Analyze the Semantic Model without a Report'
     });
 
@@ -1261,7 +1261,7 @@ async function showReportPicker(matchingReports) {
                 value: r.handle,
                 label: r.name,
                 subtitle: `Dataset: ${r.datasetPath || 'Unknown'}`,
-                badge: '✓ Connected',
+                badge: '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle">check_circle</span> Connected',
                 recommended: true
             });
         });
@@ -1395,8 +1395,8 @@ function showSuccess(message) {
     content.style.textAlign = 'center';
 
     const title = document.createElement('h2');
-    title.textContent = '✓ Success';
-    title.style.color = '#107c10';
+    title.innerHTML = '<span class="material-symbols-outlined" style="font-size:24px;vertical-align:middle">check_circle</span> Success';
+    title.style.color = '#4a7c59';
     title.style.marginTop = '0';
     title.style.marginBottom = '15px';
     content.appendChild(title);
@@ -1440,9 +1440,9 @@ function displayLargeModelWarning(stats) {
         left: '0',
         right: '0',
         padding: '10px 20px',
-        backgroundColor: '#f8d7da',
-        borderBottom: '2px solid #dc3545',
-        color: '#721c24',
+        backgroundColor: '#fdf0e6',
+        borderBottom: '3px solid #cc6b49',
+        color: '#5c3a1e',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -1451,7 +1451,7 @@ function displayLargeModelWarning(stats) {
     });
 
     const warningIcon = document.createElement('span');
-    warningIcon.textContent = '⚡ ';
+    warningIcon.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">bolt</span> ';
     warningIcon.style.marginRight = '10px';
 
     const message = document.createElement('span');
@@ -1462,13 +1462,13 @@ function displayLargeModelWarning(stats) {
     message.innerHTML = `<strong>Large Model:</strong> ${details.join(', ')}. Impact analysis may be slow. Consider analyzing specific objects rather than full graph traversals.`;
 
     const closeBtn = document.createElement('button');
-    closeBtn.textContent = '×';
+    closeBtn.innerHTML = '<span class="material-symbols-outlined">close</span>';
     Object.assign(closeBtn.style, {
         background: 'none',
         border: 'none',
         fontSize: '18px',
         cursor: 'pointer',
-        color: '#721c24',
+        color: '#5c3a1e',
         marginLeft: '20px'
     });
     closeBtn.onclick = () => banner.remove();
@@ -1506,9 +1506,9 @@ function displayOrphanedReferencesWarning(stats) {
         left: '0',
         right: '0',
         padding: '10px 20px',
-        backgroundColor: '#cce5ff',
-        borderBottom: '2px solid #0d6efd',
-        color: '#004085',
+        backgroundColor: '#e8eff8',
+        borderBottom: '3px solid #1a3a5c',
+        color: '#1a3a5c',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -1517,7 +1517,7 @@ function displayOrphanedReferencesWarning(stats) {
     });
 
     const warningIcon = document.createElement('span');
-    warningIcon.textContent = 'ℹ️ ';
+    warningIcon.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">info</span> ';
     warningIcon.style.marginRight = '10px';
 
     const message = document.createElement('span');
@@ -1525,19 +1525,19 @@ function displayOrphanedReferencesWarning(stats) {
     const moreCount = measuresWithOrphans.size - 3;
 
     message.innerHTML = `<strong>Broken References:</strong> ${orphans.length} reference(s) to non-existent objects in measures: `;
-    message.innerHTML += measureList.map(m => `<code style="background:#b8daff;padding:2px 6px;border-radius:3px;margin:0 2px;">${m}</code>`).join(', ');
+    message.innerHTML += measureList.map(m => `<code style="background:#d4e4f4;padding:2px 6px;border-radius:3px;margin:0 2px;">${m}</code>`).join(', ');
     if (moreCount > 0) {
         message.innerHTML += ` and ${moreCount} more`;
     }
 
     const closeBtn = document.createElement('button');
-    closeBtn.textContent = '×';
+    closeBtn.innerHTML = '<span class="material-symbols-outlined">close</span>';
     Object.assign(closeBtn.style, {
         background: 'none',
         border: 'none',
         fontSize: '18px',
         cursor: 'pointer',
-        color: '#004085',
+        color: '#1a3a5c',
         marginLeft: '20px'
     });
     closeBtn.onclick = () => banner.remove();
@@ -1571,9 +1571,9 @@ function displayCircularDependencyWarning(circularDeps) {
         left: '0',
         right: '0',
         padding: '12px 20px',
-        backgroundColor: '#fff3cd',
-        borderBottom: '2px solid #ffc107',
-        color: '#856404',
+        backgroundColor: '#fdf6e8',
+        borderBottom: '3px solid #c89632',
+        color: '#6b5a28',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -1589,11 +1589,11 @@ function displayCircularDependencyWarning(circularDeps) {
                 return nodeId.replace('Measure.', '');
             }
             return nodeId;
-        }).join(' → ');
+        }).join(' <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle">arrow_forward</span> ');
     });
 
     const warningIcon = document.createElement('span');
-    warningIcon.textContent = '⚠️ ';
+    warningIcon.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">warning</span> ';
     warningIcon.style.marginRight = '10px';
 
     const message = document.createElement('span');
@@ -1601,21 +1601,21 @@ function displayCircularDependencyWarning(circularDeps) {
 
     if (circularDeps.length <= 3) {
         // Show all chains if there are 3 or fewer
-        message.innerHTML += chains.map(c => `<code style="background:#ffeeba;padding:2px 6px;border-radius:3px;margin:0 4px;">${c}</code>`).join(' ');
+        message.innerHTML += chains.map(c => `<code style="background:#f5e6c8;padding:2px 6px;border-radius:3px;margin:0 4px;">${c}</code>`).join(' ');
     } else {
         // Show first 2 and count for the rest
-        message.innerHTML += chains.slice(0, 2).map(c => `<code style="background:#ffeeba;padding:2px 6px;border-radius:3px;margin:0 4px;">${c}</code>`).join(' ');
+        message.innerHTML += chains.slice(0, 2).map(c => `<code style="background:#f5e6c8;padding:2px 6px;border-radius:3px;margin:0 4px;">${c}</code>`).join(' ');
         message.innerHTML += ` and ${circularDeps.length - 2} more...`;
     }
 
     const closeBtn = document.createElement('button');
-    closeBtn.textContent = '×';
+    closeBtn.innerHTML = '<span class="material-symbols-outlined">close</span>';
     Object.assign(closeBtn.style, {
         background: 'none',
         border: 'none',
         fontSize: '20px',
         cursor: 'pointer',
-        color: '#856404',
+        color: '#6b5a28',
         marginLeft: '20px'
     });
     closeBtn.onclick = () => banner.remove();
