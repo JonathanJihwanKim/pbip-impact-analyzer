@@ -42,3 +42,6 @@ yarn.lock
 # Build outputs (if you add build process later)
 dist/
 build/
+
+# Worktrees (created outside repo, but safety guard)
+worktrees/
