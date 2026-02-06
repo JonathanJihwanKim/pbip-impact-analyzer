@@ -650,8 +650,14 @@ class DependencyAnalyzer {
         const circular = [];
         const visited = new Set();
         const recursionStack = new Set();
+        const MAX_DEPTH = 1000;
 
         const dfs = (nodeId, path = []) => {
+            if (path.length >= MAX_DEPTH) {
+                console.warn(`Max depth (${MAX_DEPTH}) reached during circular dependency detection at node: ${nodeId}`);
+                return;
+            }
+
             if (recursionStack.has(nodeId)) {
                 // Found circular dependency
                 const circleStart = path.indexOf(nodeId);
