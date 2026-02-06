@@ -23,6 +23,7 @@ class RefactoringEngine {
         console.log(`Previewing rename: ${oldName} -> ${newName} (${nodeType})`);
 
         this.previewChanges = [];
+        this.backups.clear();
 
         // Validate input
         if (!oldName || !newName) {
@@ -327,6 +328,9 @@ class RefactoringEngine {
             throw new Error('No changes to apply');
         }
 
+        // Verify write permission before proceeding
+        await this.verifyWritePermission();
+
         // Clear any previous backups
         this.backups.clear();
 
@@ -457,6 +461,27 @@ class RefactoringEngine {
      */
     clearBackups() {
         this.backups.clear();
+    }
+
+    /**
+     * Verify write permission on the file system handles
+     * @returns {Promise<void>}
+     */
+    async verifyWritePermission() {
+        const handle = this.fileAccess.semanticModelHandle;
+        if (!handle) {
+            throw new Error('No semantic model folder selected');
+        }
+
+        // Check current permission state
+        const permission = await handle.queryPermission({ mode: 'readwrite' });
+        if (permission === 'granted') return;
+
+        // Request permission if not granted
+        const requested = await handle.requestPermission({ mode: 'readwrite' });
+        if (requested !== 'granted') {
+            throw new Error('Write permission denied. Please grant write access to apply changes.');
+        }
     }
 
     /**

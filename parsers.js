@@ -670,7 +670,7 @@ class DAXParser {
 
             // Pattern: COUNTROWS(TableName), ALL(TableName), VALUES(TableName), etc.
             // Handles both quoted and unquoted table names
-            const tableFunctionPattern = /(?:COUNTROWS|RELATEDTABLE|VALUES|ALL|DISTINCT|SUMMARIZE|ADDCOLUMNS|FILTER|CALCULATETABLE)\s*\(\s*(?:'([^']+)'|(\w+))\s*(?:[,)])/gi;
+            const tableFunctionPattern = /(?:COUNTROWS|RELATEDTABLE|VALUES|ALL|DISTINCT|SUMMARIZE|ADDCOLUMNS|SELECTCOLUMNS|FILTER|CALCULATETABLE|TOPN|SAMPLE|GENERATE|GENERATEALL|NATURALLEFTOUTERJOIN|NATURALINNERJOIN|CROSSJOIN|UNION|INTERSECT|EXCEPT|DATATABLE|TREATAS)\s*\(\s*(?:'([^']+)'|(\w+))\s*(?:[,)])/gi;
 
             let match;
             while ((match = tableFunctionPattern.exec(cleaned)) !== null) {
@@ -691,9 +691,17 @@ class DAXParser {
      * @returns {Object} Object with measureRefs and columnRefs
      */
     static extractReferences(daxExpression) {
+        const columnRefs = this.extractColumnReferences(daxExpression);
+        const rawMeasureRefs = this.extractMeasureReferences(daxExpression);
+
+        // Filter out bracket references that match known column names
+        // to reduce false positives (e.g., [ColumnName] inside iterators)
+        const columnNames = new Set(columnRefs.map(c => c.column));
+        const measureRefs = rawMeasureRefs.filter(ref => !columnNames.has(ref));
+
         return {
-            measureRefs: this.extractMeasureReferences(daxExpression),
-            columnRefs: this.extractColumnReferences(daxExpression),
+            measureRefs,
+            columnRefs,
             tableRefs: this.extractTableReferences(daxExpression),
             functions: this.extractFunctionCalls(daxExpression)
         };
