@@ -560,7 +560,7 @@ function displayUpstreamDependencies(upstream, targetName, targetType) {
     const tablesContainer = document.getElementById('upstreamTablesList');
     tablesContainer.innerHTML = '';
     if (upstream.tables.length === 0) {
-        tablesContainer.innerHTML = `<div class="empty-results">No table dependencies for "${targetName}"</div>`;
+        tablesContainer.innerHTML = `<div class="empty-results">No table dependencies for "${escapeHtml(targetName)}"</div>`;
     } else {
         upstream.tables.forEach(table => {
             const item = createDependencyItem(table, 'table');
@@ -611,7 +611,7 @@ function displayDownstreamDependents(downstream, targetName, targetType) {
     const measuresContainer = document.getElementById('downstreamMeasuresList');
     measuresContainer.innerHTML = '';
     if (downstream.measures.length === 0) {
-        measuresContainer.innerHTML = `<div class="empty-results">No measures reference "${targetName}" - safe to rename!</div>`;
+        measuresContainer.innerHTML = `<div class="empty-results">No measures reference "${escapeHtml(targetName)}" - safe to rename!</div>`;
     } else {
         downstream.measures.forEach(measure => {
             const item = createDependencyItem(measure, 'measure', true);
@@ -623,7 +623,7 @@ function displayDownstreamDependents(downstream, targetName, targetType) {
     const visualsContainer = document.getElementById('downstreamVisualsList');
     visualsContainer.innerHTML = '';
     if (downstream.visuals.length === 0) {
-        visualsContainer.innerHTML = `<div class="empty-results">No visuals use "${targetName}" directly</div>`;
+        visualsContainer.innerHTML = `<div class="empty-results">No visuals use "${escapeHtml(targetName)}" directly</div>`;
     } else {
         downstream.visuals.forEach(visual => {
             const item = createDependencyItem(visual, 'visual');
@@ -887,12 +887,12 @@ function createChangeItem(change) {
 
     const before = document.createElement('div');
     before.className = 'diff-column diff-before';
-    before.innerHTML = `<h4>Before:</h4><div class="diff-code">${change.oldContent}</div>`;
+    before.innerHTML = `<h4>Before:</h4><div class="diff-code">${escapeHtml(change.oldContent)}</div>`;
     diff.appendChild(before);
 
     const after = document.createElement('div');
     after.className = 'diff-column diff-after';
-    after.innerHTML = `<h4>After:</h4><div class="diff-code">${change.newContent}</div>`;
+    after.innerHTML = `<h4>After:</h4><div class="diff-code">${escapeHtml(change.newContent)}</div>`;
     diff.appendChild(after);
 
     item.appendChild(diff);
@@ -1525,7 +1525,7 @@ function displayOrphanedReferencesWarning(stats) {
     const moreCount = measuresWithOrphans.size - 3;
 
     message.innerHTML = `<strong>Broken References:</strong> ${orphans.length} reference(s) to non-existent objects in measures: `;
-    message.innerHTML += measureList.map(m => `<code style="background:#d4e4f4;padding:2px 6px;border-radius:3px;margin:0 2px;">${m}</code>`).join(', ');
+    message.innerHTML += measureList.map(m => `<code style="background:#d4e4f4;padding:2px 6px;border-radius:3px;margin:0 2px;">${escapeHtml(m)}</code>`).join(', ');
     if (moreCount > 0) {
         message.innerHTML += ` and ${moreCount} more`;
     }
@@ -1586,9 +1586,9 @@ function displayCircularDependencyWarning(circularDeps) {
         // Clean up the node IDs for display
         return chain.map(nodeId => {
             if (nodeId.startsWith('Measure.')) {
-                return nodeId.replace('Measure.', '');
+                return escapeHtml(nodeId.replace('Measure.', ''));
             }
-            return nodeId;
+            return escapeHtml(nodeId);
         }).join(' <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle">arrow_forward</span> ');
     });
 

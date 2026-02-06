@@ -431,6 +431,7 @@ class RefactoringEngine {
      */
     async restoreBackups() {
         console.log(`Rolling back ${this.backups.size} files...`);
+        const failures = [];
 
         for (const [filePath, originalContent] of this.backups) {
             try {
@@ -439,10 +440,16 @@ class RefactoringEngine {
                 console.log(`Restored ${filePath}`);
             } catch (error) {
                 console.error(`Failed to restore ${filePath}:`, error);
+                failures.push({ filePath, error: error.message });
             }
         }
 
         this.backups.clear();
+
+        if (failures.length > 0) {
+            const failedFiles = failures.map(f => f.filePath).join(', ');
+            throw new Error(`Rollback partially failed. Could not restore: ${failedFiles}. Manual recovery may be needed.`);
+        }
     }
 
     /**
