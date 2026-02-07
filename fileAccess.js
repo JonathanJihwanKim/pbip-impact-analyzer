@@ -439,6 +439,31 @@ class FileAccessManager {
     }
 
     /**
+     * Rename a file by copying content to a new file and deleting the old one
+     * File System Access API does not support direct rename.
+     * @param {DirectoryHandle} parentDirHandle - Directory containing the file
+     * @param {string} oldName - Current file name
+     * @param {string} newName - New file name
+     * @returns {Promise<FileHandle>} Handle to the new file
+     */
+    async renameFile(parentDirHandle, oldName, newName) {
+        // Read old file
+        const oldFileHandle = await parentDirHandle.getFileHandle(oldName);
+        const oldFile = await oldFileHandle.getFile();
+        const content = await oldFile.text();
+
+        // Create new file with new name
+        const newFileHandle = await parentDirHandle.getFileHandle(newName, { create: true });
+        await this.writeFile(newFileHandle, content);
+
+        // Delete old file
+        await parentDirHandle.removeEntry(oldName);
+
+        console.log(`Renamed ${oldName} → ${newName}`);
+        return newFileHandle;
+    }
+
+    /**
      * Get folder name
      */
     getFolderName() {
