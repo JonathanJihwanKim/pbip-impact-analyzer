@@ -889,6 +889,85 @@ class DependencyAnalyzer {
     }
 
     /**
+     * Analyze the impact of deleting a node
+     * @param {string} nodeId - The node to analyze for deletion
+     * @returns {Object} Delete analysis result with risk scoring
+     */
+    analyzeDelete(nodeId) {
+        console.log(`Analyzing delete impact for: ${nodeId}`);
+
+        const node = this.dependencyGraph.nodes[nodeId];
+        if (!node) {
+            return {
+                error: `Node "${nodeId}" not found in dependency graph`,
+                targetNode: nodeId
+            };
+        }
+
+        // Collect direct breaks (depth 1) and cascade breaks (depth 2+)
+        const directBreaks = { measures: [], visuals: [], relationships: [] };
+        const cascadeBreaks = { measures: [], visuals: [] };
+
+        // Get all downstream dependents
+        const downstream = this.findAllDownstream(nodeId);
+
+        for (const item of downstream.measures) {
+            if (item.depth === 1) {
+                directBreaks.measures.push(item);
+            } else {
+                cascadeBreaks.measures.push(item);
+            }
+        }
+
+        for (const item of downstream.visuals) {
+            if (item.depth === 1) {
+                directBreaks.visuals.push(item);
+            } else {
+                cascadeBreaks.visuals.push(item);
+            }
+        }
+
+        // Check relationship breaks (for columns)
+        if (node.type === 'column') {
+            directBreaks.relationships = this.findRelationshipsUsingColumn(node.table, node.column);
+        }
+
+        // Risk scoring
+        const totalDownstream = downstream.measures.length + downstream.visuals.length;
+        const hasRelationshipBreaks = directBreaks.relationships.length > 0;
+        let riskLevel;
+        if (totalDownstream === 0 && !hasRelationshipBreaks) {
+            riskLevel = 'safe';
+        } else if (totalDownstream <= 5 && !hasRelationshipBreaks) {
+            riskLevel = 'caution';
+        } else {
+            riskLevel = 'dangerous';
+        }
+
+        // Build summary message
+        let safeMessage = null;
+        if (riskLevel === 'safe') {
+            safeMessage = `No objects depend on this ${node.type} — safe to delete.`;
+        }
+
+        const result = {
+            operation: 'delete',
+            targetNode: nodeId,
+            targetType: node.type,
+            targetName: node.name || nodeId,
+            targetDAX: node.dax || null,
+            riskLevel,
+            safeMessage,
+            directBreaks,
+            cascadeBreaks,
+            totalBreaks: totalDownstream + directBreaks.relationships.length
+        };
+
+        console.log(`Delete analysis: ${riskLevel} risk, ${result.totalBreaks} total breaks`);
+        return result;
+    }
+
+    /**
      * Get measures with orphaned references
      * @returns {Array} List of measure names that have broken references
      */
