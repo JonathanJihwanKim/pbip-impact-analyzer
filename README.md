@@ -52,6 +52,39 @@ Works with any `.pbip` project folder. The app reads your SemanticModel and Repo
 
 > **Browser support:** Chrome 86+, Edge 86+, Opera 72+, and other Chromium-based browsers. Firefox and Safari are not supported (they lack the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API)).
 
+## How to Use
+
+### What's a PBIP Folder?
+
+When you save a Power BI project in **PBIP (Power BI Project)** format, it stores your semantic model and report as separate files instead of a single `.pbix` file. A PBIP folder typically contains:
+- `<name>.SemanticModel` — your data model (measures, tables, columns, relationships) in TMDL format
+- `<name>.Report` (optional) — your report pages and visuals as JSON
+
+### Tab 1: Impact Analysis
+
+Select an object (measure, column, or visual) and choose **Rename** or **Delete** to see its full impact before making changes.
+
+- **Upstream**: what this object depends on. **Downstream**: what uses it.
+- Filter results by type or depth, search by name, or export to CSV.
+- Toggle to **Delete** mode to see a risk score with direct and cascade breaks.
+
+### Tab 2: Lineage
+
+Click **View Lineage** from an impact analysis result to see a visual dependency diagram.
+
+- Color-coded nodes: Tables (purple), Columns (blue), Measures (green), Visuals (orange).
+- Search within the diagram or export as PNG for documentation.
+
+### Tab 3: Safe Refactoring
+
+Click **Proceed to Refactoring** or go directly to this tab to rename an object.
+
+- Enter a new name and click **Preview Changes** to see side-by-side diffs of every affected file.
+- Name validation catches reserved DAX keywords, special characters, and naming conflicts.
+- Click **Apply All Changes** to write — the app creates a backup and rolls back automatically if anything fails.
+
+> **Tip:** The app never modifies your files until you explicitly click "Apply All Changes." All analysis and previews are read-only.
+
 ## Contributing
 
 Contributions are welcome! Please read the [Contributing Guide](CONTRIBUTING.md) to get started. Check out the [Roadmap](ROADMAP.md) for planned features.
