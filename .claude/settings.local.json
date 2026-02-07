@@ -1,7 +1,21 @@
 {
   "permissions": {
     "allow": [
-      "Bash(gh pr view:*)"
+      "Bash(gh pr view:*)",
+      "Bash(git commit:*)",
+      "Bash(git worktree:*)",
+      "Bash(git -C \"D:/worktrees/task-2-4-calc-groups-field-params\" commit -m \"$\\(cat <<''EOF''\nfeat: add calculation groups and field parameters support\n\nParse calculationGroup/calculationItem blocks and isParameterTable/\nNAMEOF\\(\\) references from TMDL. Build dependency graph nodes for both\ntypes with proper edge wiring. Update impact analysis display with\nnew downstream sections, lineage view with distinct colors \\(teal for\ncalc groups, warm orange for field params\\), and refactoring engine\nto update NAMEOF\\(\\) references in partition expressions on rename.\n\nCloses #31\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git -C \"D:/worktrees/task-2-4-calc-groups-field-params\" push -u origin task-2-4/calc-groups-field-params)",
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh pr update-branch:*)",
+      "Bash(git fetch:*)",
+      "Bash(git -C \"D:/worktrees/merge-36\" checkout -B task-2-2/delete-analysis)",
+      "Bash(git -C:*)",
+      "Bash(GIT_EDITOR=true git:*)"
     ]
   }
 }
