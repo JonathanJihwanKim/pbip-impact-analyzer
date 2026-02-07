@@ -2092,3 +2092,171 @@ footer .sponsor-link:hover {
         flex-direction: column;
     }
 }
+
+/* ── Session Persistence: Quick Access Panel ─────────────── */
+
+.quick-access-panel {
+    margin-bottom: 15px;
+    padding: 12px;
+    background-color: var(--surface-color);
+    border: 2px solid var(--border-color);
+    border-radius: var(--border-radius);
+}
+
+.quick-access-header h4 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin: 0 0 8px 0;
+    color: var(--text-primary);
+}
+
+.quick-access-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0;
+}
+
+.quick-tab {
+    padding: 6px 14px;
+    font-size: 0.8rem;
+    font-family: 'Playfair Display', Georgia, serif;
+    font-weight: 600;
+    background: none;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: var(--border-radius) var(--border-radius) 0 0;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: var(--transition);
+}
+
+.quick-tab:hover {
+    color: var(--primary-color);
+    background-color: var(--accent-cream);
+}
+
+.quick-tab.active {
+    color: var(--primary-color);
+    border-color: var(--border-color);
+    background-color: var(--surface-alt);
+    border-bottom: 1px solid var(--surface-alt);
+    margin-bottom: -1px;
+}
+
+.quick-list {
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.quick-list-empty {
+    padding: 12px;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-style: italic;
+}
+
+.quick-access-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border-radius: var(--border-radius);
+    transition: var(--transition);
+}
+
+.quick-access-item:hover {
+    background-color: var(--accent-cream);
+}
+
+.quick-item-info {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.quick-item-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.quick-item-meta {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+.quick-item-remove {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 2px;
+    border-radius: var(--border-radius);
+    transition: var(--transition);
+    flex-shrink: 0;
+}
+
+.quick-item-remove:hover {
+    color: var(--danger-color);
+    background-color: rgba(193, 68, 14, 0.1);
+}
+
+.quick-item-remove .material-symbols-outlined {
+    font-size: 16px;
+}
+
+/* ── Session Persistence: Favorite Button ────────────────── */
+
+.selected-object-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.selected-object-header h3 {
+    margin-bottom: 0;
+}
+
+.favorite-btn {
+    background: none;
+    border: 2px solid var(--border-color);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    padding: 6px;
+    color: var(--text-secondary);
+    transition: var(--transition);
+    flex-shrink: 0;
+}
+
+.favorite-btn:hover {
+    border-color: var(--accent-ochre);
+    color: var(--accent-ochre);
+}
+
+.favorite-btn.favorited {
+    color: var(--accent-ochre);
+    border-color: var(--accent-ochre);
+    background-color: rgba(200, 150, 50, 0.1);
+}
+
+.favorite-btn .material-symbols-outlined {
+    font-size: 20px;
+}
+
+/* ── Session Persistence: Last Folder Hint ───────────────── */
+
+.last-folder-hint {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-style: italic;
+    padding: 4px 0;
+}

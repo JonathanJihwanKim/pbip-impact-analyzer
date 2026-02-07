@@ -27,6 +27,7 @@
                     <span class="material-symbols-outlined">folder_open</span>
                     Select Project Folder
                 </button>
+                <div id="lastFolderHint" class="last-folder-hint hidden"></div>
 
                 <!-- Selection Summary -->
                 <div id="selectionSummary" class="selection-summary hidden">
@@ -97,6 +98,19 @@
                         <h2>Impact Analysis</h2>
                         <p class="description">Analyze dependencies when renaming or deleting a measure or column</p>
 
+                        <!-- Quick Access Panel -->
+                        <div id="quickAccessPanel" class="quick-access-panel hidden">
+                            <div class="quick-access-header">
+                                <h4>Quick Access</h4>
+                            </div>
+                            <div class="quick-access-tabs">
+                                <button class="quick-tab active" data-qtab="recent">Recent</button>
+                                <button class="quick-tab" data-qtab="favorites">Favorites</button>
+                            </div>
+                            <div id="recentList" class="quick-list"></div>
+                            <div id="favoritesList" class="quick-list hidden"></div>
+                        </div>
+
                         <div class="form-group">
                             <label for="objectTypeSelect">Object Type:</label>
                             <select id="objectTypeSelect" class="select">
@@ -136,7 +150,12 @@
                         <div id="impactResults" class="results hidden">
                             <!-- Selected Object Panel -->
                             <div class="selected-object-panel">
-                                <h3 id="selectedObjectName">Measure Name</h3>
+                                <div class="selected-object-header">
+                                    <h3 id="selectedObjectName">Measure Name</h3>
+                                    <button id="favoriteToggleBtn" class="favorite-btn hidden" title="Add to favorites">
+                                        <span class="material-symbols-outlined">star</span>
+                                    </button>
+                                </div>
                                 <div class="dax-display hidden" id="selectedObjectDAX">
                                     <pre><code><!-- DAX code will be displayed here --></code></pre>
                                 </div>
@@ -342,6 +361,7 @@
     <script src="analyzer.js"></script>
     <script src="refactor.js"></script>
     <script src="graph.js"></script>
+    <script src="sessionManager.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
