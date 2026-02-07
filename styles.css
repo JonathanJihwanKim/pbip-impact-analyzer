@@ -47,6 +47,8 @@
     --node-column: #4a7c59;
     --node-table: #7b5ea7;
     --node-visual: #c89632;
+    --node-calc-group: #1a8a7b;
+    --node-field-param: #d4763a;
 
     /* Depth colors */
     --depth-1: #4a7c59;
@@ -840,6 +842,15 @@ header h1 {
 
 .node-visual circle {
     fill: var(--node-visual);
+}
+
+.node-calculationGroup circle,
+.node-calculationItem circle {
+    fill: var(--node-calc-group);
+}
+
+.node-fieldParameter circle {
+    fill: var(--node-field-param);
 }
 
 .node text {
@@ -1747,6 +1758,15 @@ footer .sponsor-link:hover {
 
 .center-node.node-type-column {
     background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary-color) 100%);
+}
+
+.center-node.node-type-calculationGroup,
+.center-node.node-type-calculationItem {
+    background: linear-gradient(135deg, var(--node-calc-group) 0%, #12695e 100%);
+}
+
+.center-node.node-type-fieldParameter {
+    background: linear-gradient(135deg, var(--node-field-param) 0%, #b55e28 100%);
 }
 
 .center-node-type {

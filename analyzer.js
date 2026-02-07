@@ -47,9 +47,14 @@ class DependencyAnalyzer {
         // Add visual nodes
         this.addVisualNodes();
 
+        // Add calculation group and field parameter nodes
+        this.addCalculationGroupNodes();
+        this.addFieldParameterNodes();
+
         // Build edges (dependencies)
         this.buildMeasureDependencies();
         this.buildVisualDependencies();
+        this.buildFieldParameterDependencies();
 
         console.log(`Dependency graph built with ${Object.keys(this.dependencyGraph.nodes).length} nodes`);
 
@@ -424,8 +429,10 @@ class DependencyAnalyzer {
         const downstream = this.findAllDownstream(nodeId);
 
         // Count totals
-        const upstreamTotal = upstream.measures.length + upstream.columns.length + upstream.tables.length;
-        const downstreamTotal = downstream.measures.length + downstream.visuals.length;
+        const upstreamTotal = upstream.measures.length + upstream.columns.length + upstream.tables.length +
+            upstream.calculationItems.length + upstream.fieldParameters.length;
+        const downstreamTotal = downstream.measures.length + downstream.visuals.length +
+            downstream.calculationItems.length + downstream.fieldParameters.length;
 
         console.log(`Enhanced impact analysis complete: ${upstreamTotal} upstream, ${downstreamTotal} downstream`);
 
@@ -621,7 +628,9 @@ class DependencyAnalyzer {
             measures: [],
             columns: [],
             tables: [],
-            visuals: []
+            visuals: [],
+            calculationItems: [],
+            fieldParameters: []
         };
 
         for (const node of allNodes) {
@@ -633,6 +642,10 @@ class DependencyAnalyzer {
                 grouped.tables.push(node);
             } else if (node.type === 'visual') {
                 grouped.visuals.push(node);
+            } else if (node.type === 'calculationItem' || node.type === 'calculationGroup') {
+                grouped.calculationItems.push(node);
+            } else if (node.type === 'fieldParameter') {
+                grouped.fieldParameters.push(node);
             }
         }
 
@@ -642,6 +655,167 @@ class DependencyAnalyzer {
         }
 
         return grouped;
+    }
+
+    /**
+     * Add calculation group and calculation item nodes to the graph
+     */
+    addCalculationGroupNodes() {
+        for (const table of this.tables) {
+            if (!table.isCalculationGroup) continue;
+
+            // Create a node for the calculation group table itself
+            const groupNodeId = `CalcGroup.${table.tableName}`;
+            this.dependencyGraph.nodes[groupNodeId] = {
+                type: 'calculationGroup',
+                name: table.tableName,
+                tableName: table.tableName,
+                calculationItemCount: (table.calculationItems || []).length,
+                dependencies: [],
+                usedBy: []
+            };
+
+            // Create nodes for each calculation item
+            for (const item of (table.calculationItems || [])) {
+                const itemNodeId = `CalcItem.${table.tableName}.${item.name}`;
+                this.dependencyGraph.nodes[itemNodeId] = {
+                    type: 'calculationItem',
+                    name: item.name,
+                    tableName: table.tableName,
+                    dax: item.dax,
+                    usesSelectedMeasure: /SELECTEDMEASURE\s*\(/i.test(item.dax || ''),
+                    dependencies: [],
+                    usedBy: []
+                };
+
+                // Link calculation item to its parent group
+                this.dependencyGraph.nodes[itemNodeId].dependencies.push({
+                    type: 'calculationGroup',
+                    ref: groupNodeId,
+                    name: table.tableName
+                });
+                this.dependencyGraph.nodes[groupNodeId].usedBy.push({
+                    type: 'calculationItem',
+                    ref: itemNodeId,
+                    name: item.name
+                });
+                this.dependencyGraph.edges.push({
+                    from: itemNodeId,
+                    to: groupNodeId,
+                    type: 'calcItem-to-calcGroup'
+                });
+
+                // Parse DAX in the calculation item for column references
+                if (item.dax) {
+                    const refs = DAXParser.extractReferences(item.dax);
+
+                    for (const colRef of refs.columnRefs) {
+                        const colNodeId = `${colRef.table}.${colRef.column}`;
+                        if (this.dependencyGraph.nodes[colNodeId]) {
+                            this.dependencyGraph.nodes[itemNodeId].dependencies.push({
+                                type: 'column',
+                                ref: colNodeId,
+                                table: colRef.table,
+                                column: colRef.column
+                            });
+                            this.dependencyGraph.nodes[colNodeId].usedBy.push({
+                                type: 'calculationItem',
+                                ref: itemNodeId,
+                                name: `${table.tableName}: ${item.name}`
+                            });
+                            this.dependencyGraph.edges.push({
+                                from: itemNodeId,
+                                to: colNodeId,
+                                type: 'calcItem-to-column'
+                            });
+                        }
+                    }
+
+                    for (const tableName of refs.tableRefs) {
+                        const tableNodeId = `Table.${tableName}`;
+                        if (this.dependencyGraph.nodes[tableNodeId]) {
+                            this.dependencyGraph.nodes[itemNodeId].dependencies.push({
+                                type: 'table',
+                                ref: tableNodeId,
+                                name: tableName
+                            });
+                            this.dependencyGraph.nodes[tableNodeId].usedBy.push({
+                                type: 'calculationItem',
+                                ref: itemNodeId,
+                                name: `${table.tableName}: ${item.name}`
+                            });
+                            this.dependencyGraph.edges.push({
+                                from: itemNodeId,
+                                to: tableNodeId,
+                                type: 'calcItem-to-table'
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Add field parameter nodes to the graph
+     */
+    addFieldParameterNodes() {
+        for (const table of this.tables) {
+            if (!table.isFieldParameter) continue;
+
+            const paramNodeId = `FieldParam.${table.tableName}`;
+            this.dependencyGraph.nodes[paramNodeId] = {
+                type: 'fieldParameter',
+                name: table.tableName,
+                tableName: table.tableName,
+                fieldParameterRefs: table.fieldParameterRefs || [],
+                dependencies: [],
+                usedBy: []
+            };
+        }
+    }
+
+    /**
+     * Build dependencies from field parameter nodes to referenced measures/columns
+     */
+    buildFieldParameterDependencies() {
+        for (const table of this.tables) {
+            if (!table.isFieldParameter) continue;
+
+            const paramNodeId = `FieldParam.${table.tableName}`;
+            const paramNode = this.dependencyGraph.nodes[paramNodeId];
+            if (!paramNode) continue;
+
+            for (const ref of (table.fieldParameterRefs || [])) {
+                let targetNodeId;
+                if (ref.type === 'measure') {
+                    targetNodeId = `Measure.${ref.property}`;
+                } else {
+                    targetNodeId = `${ref.table}.${ref.property}`;
+                }
+
+                if (this.dependencyGraph.nodes[targetNodeId]) {
+                    paramNode.dependencies.push({
+                        type: ref.type,
+                        ref: targetNodeId,
+                        name: ref.type === 'measure' ? ref.property : `${ref.table}[${ref.property}]`,
+                        displayName: ref.displayName
+                    });
+
+                    this.dependencyGraph.nodes[targetNodeId].usedBy.push({
+                        type: 'fieldParameter',
+                        ref: paramNodeId,
+                        name: table.tableName
+                    });
+
+                    this.dependencyGraph.edges.push({
+                        from: paramNodeId,
+                        to: targetNodeId,
+                        type: `fieldParam-to-${ref.type}`
+                    });
+                }
+            }
+        }
     }
 
     /**

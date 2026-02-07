@@ -123,12 +123,40 @@ class TMDLParser {
                 });
             }
 
-            console.log(`Parsed table "${tableName}" with ${columns.length} columns`);
+            // Detect calculation group
+            const isCalculationGroup = /^\s*calculationGroup\b/m.test(tmdlContent);
+            let calculationItems = [];
+            if (isCalculationGroup) {
+                calculationItems = TMDLParser.parseCalculationItems(tmdlContent);
+            }
 
-            return {
+            // Detect field parameter table
+            const isFieldParameter = /^\s*isParameterTable\b/m.test(tmdlContent);
+            let fieldParameterRefs = [];
+            if (isFieldParameter) {
+                fieldParameterRefs = DAXParser.extractFieldParameterRefs(tmdlContent);
+            }
+
+            console.log(`Parsed table "${tableName}" with ${columns.length} columns` +
+                (isCalculationGroup ? `, ${calculationItems.length} calculation items` : '') +
+                (isFieldParameter ? `, ${fieldParameterRefs.length} field parameter refs` : ''));
+
+            const result = {
                 tableName: tableName,
                 columns: columns
             };
+
+            if (isCalculationGroup) {
+                result.isCalculationGroup = true;
+                result.calculationItems = calculationItems;
+            }
+
+            if (isFieldParameter) {
+                result.isFieldParameter = true;
+                result.fieldParameterRefs = fieldParameterRefs;
+            }
+
+            return result;
 
         } catch (error) {
             console.error(`Error parsing table TMDL (${fileName}):`, error);
@@ -137,6 +165,47 @@ class TMDLParser {
                 columns: []
             };
         }
+    }
+
+    /**
+     * Parse calculationItem blocks from a calculation group TMDL
+     * @param {string} tmdlContent - Full table TMDL content
+     * @returns {Array<Object>} Array of { name, dax }
+     */
+    static parseCalculationItems(tmdlContent) {
+        const items = [];
+        const pattern = /calculationItem\s+(?:'([^']+)'|(\w+))\s*=\s*/g;
+        let match;
+        const matches = [];
+
+        while ((match = pattern.exec(tmdlContent)) !== null) {
+            matches.push({
+                name: match[1] || match[2],
+                startIndex: match.index,
+                endIndex: pattern.lastIndex
+            });
+        }
+
+        for (let i = 0; i < matches.length; i++) {
+            const current = matches[i];
+            const next = matches[i + 1];
+
+            let block = next
+                ? tmdlContent.substring(current.endIndex, next.startIndex)
+                : tmdlContent.substring(current.endIndex);
+
+            // The DAX ends before the next top-level keyword (column, partition, calculationItem, etc.)
+            const keywordCut = block.search(/^\s{0,4}(?:column|partition|calculationItem)\b/m);
+            if (keywordCut > 0) {
+                block = block.substring(0, keywordCut);
+            }
+
+            const dax = block.replace(/\s+$/, '').trim();
+
+            items.push({ name: current.name, dax });
+        }
+
+        return items;
     }
 
     /**
@@ -686,6 +755,48 @@ class DAXParser {
         }
 
         return Array.from(tableRefs);
+    }
+
+    /**
+     * Extract NAMEOF() references from a field parameter partition expression
+     * @param {string} tmdlContent - Full TMDL content of the field parameter table
+     * @returns {Array<Object>} Array of { displayName, table, property, type }
+     */
+    static extractFieldParameterRefs(tmdlContent) {
+        const refs = [];
+
+        try {
+            // Find partition expression block
+            const partitionMatch = tmdlContent.match(/partition\s+.+?=\s*calculated\s*\n\s*expression\s*=\s*\n([\s\S]*?)(?=\n\s{0,4}\w|\s*$)/);
+            if (!partitionMatch) return refs;
+
+            const exprBlock = partitionMatch[1];
+
+            // Match tuples: ("Display Name", NAMEOF('Table'[Property]), ordinal)
+            const tuplePattern = /\(\s*"([^"]+)"\s*,\s*NAMEOF\s*\(\s*'([^']+)'\[([^\]]+)\]\s*\)\s*,\s*(\d+)\s*\)/gi;
+            let match;
+
+            while ((match = tuplePattern.exec(exprBlock)) !== null) {
+                const displayName = match[1];
+                const table = match[2];
+                const property = match[3];
+
+                // Classify: if the table name is literally "Measure" (or common measure-table names),
+                // treat as measure reference; otherwise treat as column reference
+                const isMeasure = table.toLowerCase() === 'measure' || table.toLowerCase() === 'measures';
+
+                refs.push({
+                    displayName,
+                    table,
+                    property,
+                    type: isMeasure ? 'measure' : 'column'
+                });
+            }
+        } catch (error) {
+            console.error('Error extracting field parameter refs:', error);
+        }
+
+        return refs;
     }
 
     /**

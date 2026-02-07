@@ -90,6 +90,16 @@ class RefactoringEngine {
                 await this.addVisualMeasureReferenceChange(oldName, newName, usage.pageId, usage.visualId);
             }
         }
+
+        // 4. Update NAMEOF() references in field parameter partition expressions
+        for (const usage of node.usedBy) {
+            if (usage.type === 'fieldParameter') {
+                const paramNode = this.analyzer.dependencyGraph.nodes[usage.ref];
+                if (paramNode) {
+                    await this.addFieldParameterNameofChange(oldName, newName, 'measure', null, paramNode.tableName);
+                }
+            }
+        }
     }
 
     /**
@@ -127,6 +137,16 @@ class RefactoringEngine {
         const affectedRelationships = this.analyzer.findRelationshipsUsingColumn(tableName, oldName);
         for (const rel of affectedRelationships) {
             await this.addRelationshipChange(oldName, newName, tableName, rel);
+        }
+
+        // 5. Update NAMEOF() references in field parameter partition expressions
+        for (const usage of node.usedBy) {
+            if (usage.type === 'fieldParameter') {
+                const paramNode = this.analyzer.dependencyGraph.nodes[usage.ref];
+                if (paramNode) {
+                    await this.addFieldParameterNameofChange(oldName, newName, 'column', tableName, paramNode.tableName);
+                }
+            }
         }
     }
 
@@ -245,6 +265,39 @@ class RefactoringEngine {
             description: `Rename column "${oldName}" to "${newName}" in table ${tableName}`,
             oldContent: `column '${oldName}'`,
             newContent: `column '${newName}'`
+        };
+
+        this.previewChanges.push(change);
+    }
+
+    /**
+     * Add NAMEOF() reference change in field parameter partition expression
+     * @param {string} oldName - Old measure/column name
+     * @param {string} newName - New measure/column name
+     * @param {string} refType - 'measure' or 'column'
+     * @param {string|null} tableName - Table name (for columns)
+     * @param {string} paramTableName - Name of the field parameter table
+     */
+    async addFieldParameterNameofChange(oldName, newName, refType, tableName, paramTableName) {
+        let oldContent, newContent;
+
+        if (refType === 'measure') {
+            // NAMEOF('Measure'[OldName]) → NAMEOF('Measure'[NewName])
+            // The table prefix may be 'Measure' or 'Measures'
+            oldContent = `[${oldName}]`;
+            newContent = `[${newName}]`;
+        } else {
+            // NAMEOF('TableName'[OldColumn]) → NAMEOF('TableName'[NewColumn])
+            oldContent = `'${tableName}'[${oldName}]`;
+            newContent = `'${tableName}'[${newName}]`;
+        }
+
+        const change = {
+            file: `definition/tables/${paramTableName}.tmdl`,
+            type: 'field-parameter-nameof',
+            description: `Update NAMEOF() reference in field parameter "${paramTableName}"`,
+            oldContent: oldContent,
+            newContent: newContent
         };
 
         this.previewChanges.push(change);
