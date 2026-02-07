@@ -190,6 +190,29 @@
                                 </button>
                             </div>
 
+                            <!-- Results Filter Bar -->
+                            <div class="results-filter-bar">
+                                <div class="filter-search">
+                                    <span class="material-symbols-outlined filter-icon">search</span>
+                                    <input type="text" id="impactSearchInput" class="input filter-input" placeholder="Filter results by name...">
+                                </div>
+                                <div class="filter-controls">
+                                    <div class="filter-chips">
+                                        <label class="filter-chip"><input type="checkbox" class="filter-chip-input" data-filter="measure" checked> Measures</label>
+                                        <label class="filter-chip"><input type="checkbox" class="filter-chip-input" data-filter="column" checked> Columns</label>
+                                        <label class="filter-chip"><input type="checkbox" class="filter-chip-input" data-filter="table" checked> Tables</label>
+                                        <label class="filter-chip"><input type="checkbox" class="filter-chip-input" data-filter="visual" checked> Visuals</label>
+                                    </div>
+                                    <div class="depth-filter">
+                                        <span class="depth-label">Max depth:</span>
+                                        <button class="depth-filter-btn active" data-depth="0">All</button>
+                                        <button class="depth-filter-btn" data-depth="1">1</button>
+                                        <button class="depth-filter-btn" data-depth="2">2</button>
+                                        <button class="depth-filter-btn" data-depth="3">3</button>
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- Split View: Upstream | Downstream -->
                             <div class="impact-split-view">
                                 <!-- Upstream Column -->
@@ -341,6 +364,10 @@
                         <p class="description">Visual lineage showing upstream dependencies and downstream dependents</p>
                     </div>
                     <div class="graph-controls">
+                        <div class="lineage-search">
+                            <span class="material-symbols-outlined filter-icon">search</span>
+                            <input type="text" id="lineageSearchInput" class="input filter-input" placeholder="Search nodes...">
+                        </div>
                         <button id="exportGraphBtn" class="btn btn-secondary">
                             <span class="material-symbols-outlined">image</span>
                             Export as PNG

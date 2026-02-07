@@ -3,6 +3,228 @@
  * Orchestrates UI interactions and coordinates between modules
  */
 
+/**
+ * SearchableSelect - Custom searchable dropdown component
+ * Wraps a native <select> with a text input + filtered dropdown list.
+ */
+class SearchableSelect {
+    /**
+     * @param {string} selectId - ID of the native <select> to enhance
+     * @param {Object} options - Configuration options
+     * @param {Function} options.onChange - Callback when selection changes
+     */
+    constructor(selectId, options = {}) {
+        this.nativeSelect = document.getElementById(selectId);
+        if (!this.nativeSelect) return;
+
+        this.onChange = options.onChange || null;
+        this.isOpen = false;
+        this.highlightedIndex = -1;
+        this.filteredOptions = [];
+
+        this._build();
+        this._bindEvents();
+    }
+
+    /** Build the custom dropdown DOM */
+    _build() {
+        // Hide native select
+        this.nativeSelect.style.display = 'none';
+
+        // Create wrapper
+        this.wrapper = document.createElement('div');
+        this.wrapper.className = 'searchable-select';
+
+        // Search input
+        this.input = document.createElement('input');
+        this.input.type = 'text';
+        this.input.className = 'searchable-select-input';
+        this.input.placeholder = 'Type to search...';
+        this.input.autocomplete = 'off';
+
+        // Dropdown list
+        this.dropdown = document.createElement('div');
+        this.dropdown.className = 'searchable-select-dropdown';
+
+        // Result count
+        this.countEl = document.createElement('div');
+        this.countEl.className = 'searchable-select-count';
+
+        this.wrapper.appendChild(this.input);
+        this.wrapper.appendChild(this.dropdown);
+        this.wrapper.appendChild(this.countEl);
+
+        // Insert after native select
+        this.nativeSelect.parentNode.insertBefore(this.wrapper, this.nativeSelect.nextSibling);
+    }
+
+    /** Bind event listeners */
+    _bindEvents() {
+        this.input.addEventListener('input', () => this._onInput());
+        this.input.addEventListener('focus', () => this._open());
+        this.input.addEventListener('keydown', (e) => this._onKeydown(e));
+
+        // Close on outside click
+        document.addEventListener('click', (e) => {
+            if (!this.wrapper.contains(e.target)) {
+                this._close();
+            }
+        });
+    }
+
+    /** Handle text input */
+    _onInput() {
+        this._filter(this.input.value);
+        this._open();
+    }
+
+    /** Filter options by query */
+    _filter(query) {
+        const q = query.toLowerCase().trim();
+        const allOptions = Array.from(this.nativeSelect.options).slice(1); // skip placeholder
+
+        this.filteredOptions = allOptions.filter(opt =>
+            opt.textContent.toLowerCase().includes(q)
+        );
+
+        this._renderDropdown();
+        this.highlightedIndex = -1;
+    }
+
+    /** Render the filtered dropdown */
+    _renderDropdown() {
+        this.dropdown.innerHTML = '';
+
+        if (this.filteredOptions.length === 0) {
+            this.dropdown.innerHTML = '<div class="searchable-select-empty">No matches</div>';
+            this.countEl.textContent = '0 results';
+            return;
+        }
+
+        // Limit visible items for performance
+        const maxVisible = 100;
+        const visibleOptions = this.filteredOptions.slice(0, maxVisible);
+
+        visibleOptions.forEach((opt, idx) => {
+            const item = document.createElement('div');
+            item.className = 'searchable-select-item';
+            item.textContent = opt.textContent;
+            item.dataset.value = opt.value;
+            item.dataset.index = idx;
+            item.addEventListener('click', () => this._selectItem(opt));
+            item.addEventListener('mouseenter', () => {
+                this.highlightedIndex = idx;
+                this._updateHighlight();
+            });
+            this.dropdown.appendChild(item);
+        });
+
+        const total = this.filteredOptions.length;
+        const query = this.input.value.trim();
+        if (query) {
+            this.countEl.textContent = `${total} result${total !== 1 ? 's' : ''} matching "${query}"`;
+        } else {
+            this.countEl.textContent = `${total} item${total !== 1 ? 's' : ''}`;
+        }
+    }
+
+    /** Select an item */
+    _selectItem(opt) {
+        this.nativeSelect.value = opt.value;
+        this.input.value = opt.textContent;
+        this._close();
+
+        // Trigger change event on native select
+        this.nativeSelect.dispatchEvent(new Event('change'));
+        if (this.onChange) this.onChange(opt.value);
+    }
+
+    /** Handle keyboard navigation */
+    _onKeydown(e) {
+        if (!this.isOpen) {
+            if (e.key === 'ArrowDown' || e.key === 'Enter') {
+                this._open();
+                e.preventDefault();
+            }
+            return;
+        }
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            this.highlightedIndex = Math.min(this.highlightedIndex + 1, this.filteredOptions.length - 1);
+            this._updateHighlight();
+            this._scrollToHighlighted();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            this.highlightedIndex = Math.max(this.highlightedIndex - 1, 0);
+            this._updateHighlight();
+            this._scrollToHighlighted();
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (this.highlightedIndex >= 0 && this.highlightedIndex < this.filteredOptions.length) {
+                this._selectItem(this.filteredOptions[this.highlightedIndex]);
+            }
+        } else if (e.key === 'Escape') {
+            this._close();
+        }
+    }
+
+    /** Update visual highlight */
+    _updateHighlight() {
+        const items = this.dropdown.querySelectorAll('.searchable-select-item');
+        items.forEach((item, idx) => {
+            item.classList.toggle('highlighted', idx === this.highlightedIndex);
+        });
+    }
+
+    /** Scroll dropdown to keep highlighted item visible */
+    _scrollToHighlighted() {
+        const items = this.dropdown.querySelectorAll('.searchable-select-item');
+        if (items[this.highlightedIndex]) {
+            items[this.highlightedIndex].scrollIntoView({ block: 'nearest' });
+        }
+    }
+
+    /** Open dropdown */
+    _open() {
+        if (!this.isOpen) {
+            this._filter(this.input.value);
+            this.isOpen = true;
+            this.dropdown.classList.add('open');
+        }
+    }
+
+    /** Close dropdown */
+    _close() {
+        this.isOpen = false;
+        this.dropdown.classList.remove('open');
+        this.highlightedIndex = -1;
+    }
+
+    /** Refresh options (call after native select options change) */
+    refresh() {
+        this.input.value = '';
+        this._filter('');
+        this._close();
+    }
+
+    /** Set value programmatically */
+    setValue(value) {
+        const opt = Array.from(this.nativeSelect.options).find(o => o.value === value);
+        if (opt) {
+            this.nativeSelect.value = value;
+            this.input.value = opt.textContent;
+        }
+    }
+
+    /** Clear the input */
+    clear() {
+        this.input.value = '';
+        this.nativeSelect.value = '';
+        this._close();
+    }
+}
+
 // Sponsor configuration — edit this array to add/remove sponsors
 const SPONSORS = [
     // { name: 'Example Corp', logo: 'assets/sponsors/example.png', url: 'https://example.com' },
@@ -22,6 +244,17 @@ let parsedData = {
     pages: []
 };
 let currentImpactResult = null; // Store current impact analysis result
+
+// Searchable select instances
+let impactObjectSearch = null;
+let refactorObjectSearch = null;
+
+// Filter state (persists across tab switches)
+let filterState = {
+    searchText: '',
+    typeFilters: { measure: true, column: true, table: true, visual: true },
+    maxDepth: 0 // 0 = show all
+};
 
 /**
  * Initialize application
@@ -93,6 +326,45 @@ function setupEventListeners() {
 
     // Dependency Graph tab (export only)
     document.getElementById('exportGraphBtn').addEventListener('click', handleExportGraph);
+
+    // Initialize searchable selects
+    impactObjectSearch = new SearchableSelect('objectSelect');
+    refactorObjectSearch = new SearchableSelect('refactorObjectSelect');
+
+    // Impact results filter bar
+    const impactSearchInput = document.getElementById('impactSearchInput');
+    if (impactSearchInput) {
+        impactSearchInput.addEventListener('input', () => {
+            filterState.searchText = impactSearchInput.value;
+            applyResultsFilter();
+        });
+    }
+
+    // Type filter checkboxes
+    document.querySelectorAll('.filter-chip-input').forEach(cb => {
+        cb.addEventListener('change', () => {
+            filterState.typeFilters[cb.dataset.filter] = cb.checked;
+            applyResultsFilter();
+        });
+    });
+
+    // Depth filter buttons
+    document.querySelectorAll('.depth-filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.depth-filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            filterState.maxDepth = parseInt(btn.dataset.depth) || 0;
+            applyResultsFilter();
+        });
+    });
+
+    // Lineage search
+    const lineageSearchInput = document.getElementById('lineageSearchInput');
+    if (lineageSearchInput) {
+        lineageSearchInput.addEventListener('input', () => {
+            applyLineageSearch(lineageSearchInput.value);
+        });
+    }
 }
 
 /**
@@ -387,6 +659,9 @@ function populateImpactObjectSelect() {
             });
         });
     }
+
+    // Refresh searchable select
+    if (impactObjectSearch) impactObjectSearch.refresh();
 }
 
 /**
@@ -429,6 +704,9 @@ function populateRefactorObjectSelect() {
             objectSelect.appendChild(option);
         });
     }
+
+    // Refresh searchable select
+    if (refactorObjectSearch) refactorObjectSearch.refresh();
 }
 
 /**
@@ -450,7 +728,7 @@ function handleObjectTypeChange() {
     }
 
     if (typeSelect.value === 'visual') {
-        // Show visual picker, hide regular object select
+        // Show visual picker, hide regular object select (and its searchable wrapper)
         objectSelectGroup.classList.add('hidden');
         visualPickerGroup.classList.remove('hidden');
         visualSelectGroup.classList.remove('hidden');
@@ -464,6 +742,7 @@ function handleObjectTypeChange() {
 
         if (!typeSelect.value) {
             objectSelect.innerHTML = '<option value="">-- Select a measure or column --</option>';
+            if (impactObjectSearch) impactObjectSearch.refresh();
             analyzeBtn.disabled = true;
         } else {
             populateImpactObjectSelect();
@@ -771,6 +1050,9 @@ function displayImpactResults(result) {
     updateImpactActionButtons(result);
 
     resultsContainer.classList.remove('hidden');
+
+    // Apply any active filters
+    applyResultsFilter();
 }
 
 /**
@@ -1098,13 +1380,17 @@ function proceedToRefactoring(result) {
     typeSelect.value = result.targetType;
     populateRefactorObjectSelect();
 
-    // Set the selected object
-    const objectSelect = document.getElementById('refactorObjectSelect');
+    // Set the selected object (update both native select and searchable wrapper)
+    let targetValue;
     if (result.targetType === 'measure') {
-        objectSelect.value = result.targetName;
+        targetValue = result.targetName;
     } else if (result.targetType === 'column') {
         // For columns, the value format is "table.column"
-        objectSelect.value = result.targetNode.replace('Measure.', '');
+        targetValue = result.targetNode.replace('Measure.', '');
+    }
+    if (targetValue) {
+        document.getElementById('refactorObjectSelect').value = targetValue;
+        if (refactorObjectSearch) refactorObjectSearch.setValue(targetValue);
     }
 
     // Focus on new name input
@@ -2491,6 +2777,142 @@ function updateFavoriteButton(nodeId) {
         btn.classList.remove('favorited');
         icon.textContent = 'star';
         btn.title = 'Add to favorites';
+    }
+}
+
+/**
+ * Apply filters to impact analysis results
+ * Filters dependency items by search text, type, and depth
+ */
+function applyResultsFilter() {
+    const query = filterState.searchText.toLowerCase().trim();
+    const maxDepth = filterState.maxDepth;
+
+    // Filter each dependency section
+    const sections = [
+        { list: 'upstreamTablesList', type: 'table', countId: 'upstreamTablesCount', toggle: 'upstream-tables' },
+        { list: 'upstreamColumnsList', type: 'column', countId: 'upstreamColumnsCount', toggle: 'upstream-columns' },
+        { list: 'upstreamMeasuresList', type: 'measure', countId: 'upstreamMeasuresCount', toggle: 'upstream-measures' },
+        { list: 'downstreamMeasuresList', type: 'measure', countId: 'downstreamMeasuresCount', toggle: 'downstream-measures' },
+        { list: 'downstreamVisualsList', type: 'visual', countId: 'downstreamVisualsCount', toggle: 'downstream-visuals' }
+    ];
+
+    let totalUpstreamVisible = 0;
+    let totalDownstreamVisible = 0;
+
+    sections.forEach(section => {
+        const listEl = document.getElementById(section.list);
+        if (!listEl) return;
+
+        const items = listEl.querySelectorAll('.dependency-item');
+        const typeVisible = filterState.typeFilters[section.type] !== false;
+        let visibleCount = 0;
+        let totalCount = items.length;
+
+        // Also count empty-results divs (they shouldn't count)
+        const emptyResults = listEl.querySelectorAll('.empty-results');
+        totalCount -= emptyResults.length;
+
+        items.forEach(item => {
+            let show = typeVisible;
+
+            // Text search filter
+            if (show && query) {
+                const nameEl = item.querySelector('.dependency-item-name');
+                const name = nameEl ? nameEl.textContent.toLowerCase() : '';
+                show = name.includes(query);
+            }
+
+            // Depth filter
+            if (show && maxDepth > 0) {
+                const depthClass = Array.from(item.classList).find(c => c.startsWith('depth-'));
+                const depth = depthClass ? parseInt(depthClass.replace('depth-', '')) : 1;
+                show = depth <= maxDepth;
+            }
+
+            item.style.display = show ? '' : 'none';
+            if (show) visibleCount++;
+        });
+
+        // Update section count with "X of Y" format
+        const countEl = document.getElementById(section.countId);
+        if (countEl) {
+            if (query || maxDepth > 0 || !typeVisible) {
+                countEl.textContent = `${visibleCount} of ${totalCount}`;
+            } else {
+                countEl.textContent = totalCount;
+            }
+        }
+
+        // Toggle section visibility based on type filter
+        const sectionToggle = document.querySelector(`[data-section="${section.toggle}"]`);
+        if (sectionToggle) {
+            const sectionEl = sectionToggle.closest('.dependency-section');
+            if (sectionEl) {
+                sectionEl.style.display = typeVisible ? '' : 'none';
+            }
+        }
+
+        // Accumulate totals
+        if (section.list.startsWith('upstream')) {
+            totalUpstreamVisible += visibleCount;
+        } else {
+            totalDownstreamVisible += visibleCount;
+        }
+    });
+
+    // Update total counts
+    const upstreamCountEl = document.getElementById('upstreamCount');
+    const downstreamCountEl = document.getElementById('downstreamCount');
+    if (upstreamCountEl && (query || maxDepth > 0)) {
+        upstreamCountEl.textContent = totalUpstreamVisible;
+    }
+    if (downstreamCountEl && (query || maxDepth > 0)) {
+        downstreamCountEl.textContent = totalDownstreamVisible;
+    }
+}
+
+/**
+ * Apply search highlighting to lineage view
+ * @param {string} query - Search text
+ */
+function applyLineageSearch(query) {
+    const container = document.getElementById('graphContainer');
+    if (!container) return;
+
+    const q = query.toLowerCase().trim();
+    const nodes = container.querySelectorAll('.lineage-node');
+
+    nodes.forEach(node => {
+        const nameEl = node.querySelector('.node-name');
+        const name = nameEl ? nameEl.textContent.toLowerCase() : '';
+
+        if (!q) {
+            // No query — remove all search states
+            node.classList.remove('search-match', 'search-dim');
+        } else if (name.includes(q)) {
+            node.classList.add('search-match');
+            node.classList.remove('search-dim');
+        } else {
+            node.classList.remove('search-match');
+            node.classList.add('search-dim');
+        }
+    });
+
+    // Also handle center node
+    const centerNode = container.querySelector('.center-node');
+    if (centerNode) {
+        const centerName = centerNode.querySelector('.center-node-name');
+        const name = centerName ? centerName.textContent.toLowerCase() : '';
+        if (!q) {
+            centerNode.classList.remove('search-match', 'search-dim');
+        } else if (name.includes(q)) {
+            centerNode.classList.add('search-match');
+            centerNode.classList.remove('search-dim');
+        } else {
+            centerNode.classList.remove('search-match');
+            centerNode.classList.add('search-dim');
+        }
     }
 }
 
