@@ -4,7 +4,7 @@
 |-------|-------|
 | **Date** | 2026-02-06 |
 | **Cycle** | #2 |
-| **Status** | Draft |
+| **Status** | In Progress |
 | **Orchestration Agent** | Claude Code (main context) |
 
 ---
@@ -41,7 +41,7 @@ These features directly address the top gaps identified in the codebase review, 
 | **Branch** | `task-2-1/batch-operations` |
 | **Complexity** | High |
 | **Dependencies** | None |
-| **GitHub Issue** | _#TBD_ |
+| **GitHub Issue** | #28 |
 
 **Description:**
 
@@ -110,7 +110,7 @@ Add the ability to rename a **table** and automatically cascade the rename to al
 | **Branch** | `task-2-2/delete-analysis` |
 | **Complexity** | Medium |
 | **Dependencies** | None |
-| **GitHub Issue** | _#TBD_ |
+| **GitHub Issue** | #29 |
 
 **Description:**
 
@@ -186,7 +186,7 @@ Add a "Delete Analysis" mode to the Impact Analysis tab. When a user selects a m
 | **Branch** | `task-2-3/search-filter` |
 | **Complexity** | Medium |
 | **Dependencies** | None |
-| **GitHub Issue** | _#TBD_ (also addresses existing #19) |
+| **GitHub Issue** | #30 (also addresses existing #19) |
 
 **Description:**
 
@@ -267,7 +267,7 @@ Add search and filtering capabilities throughout the app. Large models (500+ mea
 | **Branch** | `task-2-4/calc-groups-field-params` |
 | **Complexity** | High |
 | **Dependencies** | None |
-| **GitHub Issue** | _#TBD_ |
+| **GitHub Issue** | #31 |
 
 **Description:**
 
@@ -468,7 +468,7 @@ The key distinction: for measures, the table name (which is always literally `'M
 | **Branch** | `task-2-5/session-persistence` |
 | **Complexity** | Medium |
 | **Dependencies** | None |
-| **GitHub Issue** | _#TBD_ (also addresses existing #20) |
+| **GitHub Issue** | #32 (also addresses existing #20) |
 
 **Description:**
 

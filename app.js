@@ -13,6 +13,7 @@ let fileAccessManager;
 let dependencyAnalyzer;
 let refactoringEngine;
 let graphVisualizer;
+let sessionManager;
 let parsedData = {
     measures: [],
     tables: [],
@@ -33,6 +34,7 @@ function init() {
     dependencyAnalyzer = new DependencyAnalyzer();
     refactoringEngine = new RefactoringEngine(dependencyAnalyzer, fileAccessManager);
     graphVisualizer = new GraphVisualizer('graphContainer');
+    sessionManager = new SessionManager();
 
     // Check browser support
     if (!fileAccessManager.isSupported()) {
@@ -46,6 +48,9 @@ function init() {
 
     // Render sponsor bar if sponsors are configured
     renderSponsors();
+
+    // Restore session state
+    restoreSessionState();
 
     console.log('Application initialized successfully');
 }
@@ -260,6 +265,18 @@ async function loadPBIPFiles() {
     // Update selection summary
     updateSelectionSummary();
 
+    // Save folder metadata to session
+    if (sessionManager) {
+        sessionManager.saveLastFolder(
+            fileAccessManager.folderHandle?.name || '',
+            fileAccessManager.semanticModelHandle?.name || '',
+            fileAccessManager.reportHandle?.name || ''
+        );
+        // Hide the last-folder hint after a fresh load
+        const hintEl = document.getElementById('lastFolderHint');
+        if (hintEl) hintEl.classList.add('hidden');
+    }
+
     // Show model stats and enable tabs
     document.getElementById('modelStats').classList.remove('hidden');
     document.getElementById('tabNav').style.display = 'flex';
@@ -408,6 +425,11 @@ function handleObjectTypeChange() {
     const analyzeBtn = document.getElementById('analyzeBtn');
     const impactResults = document.getElementById('impactResults');
     const placeholder = document.getElementById('impactPlaceholder');
+
+    // Save object type to session
+    if (sessionManager && typeSelect.value) {
+        sessionManager.saveSettings({ lastObjectType: typeSelect.value });
+    }
 
     if (typeSelect.value === 'visual') {
         // Show visual picker, hide regular object select
@@ -580,6 +602,12 @@ function handleAnalyzeImpact() {
     // Store current result for other tabs
     currentImpactResult = { nodeId, result };
 
+    // Record in session history
+    if (sessionManager) {
+        sessionManager.addRecentAnalysis(nodeId, result.targetName, result.targetType);
+        refreshQuickAccessPanel();
+    }
+
     // Display results
     displayImpactResults(result);
 
@@ -606,6 +634,17 @@ function displayImpactResults(result) {
 
     // Display selected object with DAX
     document.getElementById('selectedObjectName').textContent = result.targetName;
+
+    // Update favorite toggle button
+    updateFavoriteButton(result.targetNode);
+    const favBtn = document.getElementById('favoriteToggleBtn');
+    if (favBtn) {
+        favBtn.onclick = () => {
+            sessionManager.toggleFavorite(result.targetNode, result.targetName, result.targetType);
+            updateFavoriteButton(result.targetNode);
+            refreshQuickAccessPanel();
+        };
+    }
 
     const daxContainer = document.getElementById('selectedObjectDAX');
     if (result.targetDAX) {
@@ -1302,6 +1341,11 @@ function switchTab(tabName) {
         pane.classList.toggle('active', pane.id === tabName);
     });
 
+    // Save active tab to session
+    if (sessionManager) {
+        sessionManager.saveSettings({ lastTab: tabName });
+    }
+
     // When switching to refactoring tab, preserve selection from Impact Analysis
     if (tabName === 'refactor') {
         const impactTypeSelect = document.getElementById('objectTypeSelect');
@@ -1864,6 +1908,211 @@ function renderSponsors() {
         link.appendChild(img);
         container.appendChild(link);
     });
+}
+
+// ── Session Persistence ─────────────────────────────────────────
+
+/**
+ * Restore session state from localStorage on app init
+ */
+function restoreSessionState() {
+    // Show last folder hint
+    const lastFolder = sessionManager.getLastFolder();
+    const hintEl = document.getElementById('lastFolderHint');
+    if (lastFolder && hintEl) {
+        const parts = [lastFolder.folderName, lastFolder.semanticModelName].filter(Boolean);
+        hintEl.textContent = `Last opened: ${parts.join(' / ')}`;
+        hintEl.classList.remove('hidden');
+    }
+
+    // Restore last active tab
+    const settings = sessionManager.getSettings();
+    if (settings.lastTab) {
+        switchTab(settings.lastTab);
+    }
+
+    // Restore last object type
+    if (settings.lastObjectType) {
+        const typeSelect = document.getElementById('objectTypeSelect');
+        if (typeSelect) typeSelect.value = settings.lastObjectType;
+    }
+
+    // Populate quick access panel
+    refreshQuickAccessPanel();
+    setupQuickAccessListeners();
+}
+
+/**
+ * Set up Quick Access panel tab switching and listeners
+ */
+function setupQuickAccessListeners() {
+    const tabs = document.querySelectorAll('.quick-tab');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+
+            const target = tab.dataset.qtab;
+            document.getElementById('recentList').classList.toggle('hidden', target !== 'recent');
+            document.getElementById('favoritesList').classList.toggle('hidden', target !== 'favorites');
+        });
+    });
+}
+
+/**
+ * Refresh the quick access panel with current data
+ */
+function refreshQuickAccessPanel() {
+    const panel = document.getElementById('quickAccessPanel');
+    if (!panel) return;
+
+    const recents = sessionManager.getRecentAnalyses();
+    const favorites = sessionManager.getFavorites();
+
+    // Show panel if there is anything to display
+    if (recents.length === 0 && favorites.length === 0) {
+        panel.classList.add('hidden');
+        return;
+    }
+    panel.classList.remove('hidden');
+
+    // Render recent list
+    const recentList = document.getElementById('recentList');
+    recentList.innerHTML = '';
+    if (recents.length === 0) {
+        recentList.innerHTML = '<div class="quick-list-empty">No recent analyses</div>';
+    } else {
+        recents.forEach(item => {
+            const el = createQuickAccessItem(item, false);
+            recentList.appendChild(el);
+        });
+    }
+
+    // Render favorites list
+    const favList = document.getElementById('favoritesList');
+    favList.innerHTML = '';
+    if (favorites.length === 0) {
+        favList.innerHTML = '<div class="quick-list-empty">No favorites yet</div>';
+    } else {
+        favorites.forEach(item => {
+            const el = createQuickAccessItem(item, true);
+            favList.appendChild(el);
+        });
+    }
+}
+
+/**
+ * Create a quick access list item
+ * @param {Object} item - { nodeId, name, type, timestamp? }
+ * @param {boolean} isFavorite - If true, show remove button
+ * @returns {HTMLElement}
+ */
+function createQuickAccessItem(item, isFavorite) {
+    const el = document.createElement('div');
+    el.className = 'quick-access-item';
+
+    const info = document.createElement('div');
+    info.className = 'quick-item-info';
+    info.style.cursor = 'pointer';
+
+    const nameEl = document.createElement('span');
+    nameEl.className = 'quick-item-name';
+    nameEl.textContent = item.name;
+    info.appendChild(nameEl);
+
+    const meta = document.createElement('span');
+    meta.className = 'quick-item-meta';
+    if (item.timestamp) {
+        meta.textContent = formatRelativeTime(item.timestamp);
+    } else {
+        meta.textContent = item.type;
+    }
+    info.appendChild(meta);
+
+    // Click to analyze
+    info.addEventListener('click', () => {
+        selectAndAnalyzeFromQuickAccess(item);
+    });
+
+    el.appendChild(info);
+
+    if (isFavorite) {
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'quick-item-remove';
+        removeBtn.title = 'Remove from favorites';
+        removeBtn.innerHTML = '<span class="material-symbols-outlined">close</span>';
+        removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sessionManager.removeFavorite(item.nodeId);
+            refreshQuickAccessPanel();
+        });
+        el.appendChild(removeBtn);
+    }
+
+    return el;
+}
+
+/**
+ * Select an object from Quick Access and trigger analysis
+ * @param {Object} item - { nodeId, name, type }
+ */
+function selectAndAnalyzeFromQuickAccess(item) {
+    const typeSelect = document.getElementById('objectTypeSelect');
+    const objectSelect = document.getElementById('objectSelect');
+
+    // Set type
+    typeSelect.value = item.type;
+    handleObjectTypeChange();
+
+    // Set object (for measure/column)
+    if (item.type === 'measure' || item.type === 'column') {
+        objectSelect.value = item.nodeId;
+        handleObjectSelectChange();
+    }
+
+    // Trigger analysis
+    handleAnalyzeImpact();
+}
+
+/**
+ * Format a timestamp as a relative time string
+ * @param {number} timestamp - Unix timestamp in ms
+ * @returns {string}
+ */
+function formatRelativeTime(timestamp) {
+    const diff = Date.now() - timestamp;
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (seconds < 60) return 'just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days === 1) return 'yesterday';
+    if (days < 7) return `${days}d ago`;
+    return new Date(timestamp).toLocaleDateString();
+}
+
+/**
+ * Update favorite toggle button state
+ * @param {string} nodeId
+ */
+function updateFavoriteButton(nodeId) {
+    const btn = document.getElementById('favoriteToggleBtn');
+    if (!btn) return;
+
+    btn.classList.remove('hidden');
+    const icon = btn.querySelector('.material-symbols-outlined');
+    if (sessionManager.isFavorite(nodeId)) {
+        btn.classList.add('favorited');
+        icon.textContent = 'star';
+        btn.title = 'Remove from favorites';
+    } else {
+        btn.classList.remove('favorited');
+        icon.textContent = 'star';
+        btn.title = 'Add to favorites';
+    }
 }
 
 // Initialize when DOM is ready
