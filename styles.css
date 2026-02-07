@@ -79,6 +79,7 @@ body {
     max-width: 1400px;
     margin: 0 auto;
     padding: 20px;
+    padding-bottom: 80px;
 }
 
 /* Material Symbols Utility Classes */
@@ -131,6 +132,15 @@ header::after {
     width: 60px;
     height: 4px;
     background: var(--accent-terracotta);
+}
+
+.header-logo {
+    position: absolute;
+    left: 30px;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 48px;
+    width: auto;
 }
 
 header h1 {
@@ -850,13 +860,18 @@ header h1 {
 
 /* Footer */
 footer {
-    margin-top: 40px;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    margin-top: 0;
     padding: 20px;
     text-align: center;
     color: var(--text-secondary);
     font-size: 0.9rem;
     border-top: 2px solid var(--border-color);
-    position: relative;
+    background-color: var(--bg-color);
+    z-index: 100;
 }
 
 footer::before {
