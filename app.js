@@ -857,6 +857,8 @@ function displayDownstreamDependents(downstream, targetName, targetType) {
     document.getElementById('downstreamCount').textContent = downstream.totalCount || 0;
     document.getElementById('downstreamMeasuresCount').textContent = downstream.measures.length;
     document.getElementById('downstreamVisualsCount').textContent = downstream.visuals.length;
+    document.getElementById('downstreamCalcItemsCount').textContent = (downstream.calculationItems || []).length;
+    document.getElementById('downstreamFieldParamsCount').textContent = (downstream.fieldParameters || []).length;
 
     // Display measures
     const measuresContainer = document.getElementById('downstreamMeasuresList');
@@ -867,6 +869,32 @@ function displayDownstreamDependents(downstream, targetName, targetType) {
         downstream.measures.forEach(measure => {
             const item = createDependencyItem(measure, 'measure', true);
             measuresContainer.appendChild(item);
+        });
+    }
+
+    // Display calculation items
+    const calcItemsContainer = document.getElementById('downstreamCalcItemsList');
+    calcItemsContainer.innerHTML = '';
+    const calcItems = downstream.calculationItems || [];
+    if (calcItems.length === 0) {
+        calcItemsContainer.innerHTML = '<div class="empty-results">No calculation items reference this object</div>';
+    } else {
+        calcItems.forEach(calcItem => {
+            const item = createDependencyItem(calcItem, 'calculationItem', true);
+            calcItemsContainer.appendChild(item);
+        });
+    }
+
+    // Display field parameters
+    const fieldParamsContainer = document.getElementById('downstreamFieldParamsList');
+    fieldParamsContainer.innerHTML = '';
+    const fieldParams = downstream.fieldParameters || [];
+    if (fieldParams.length === 0) {
+        fieldParamsContainer.innerHTML = '<div class="empty-results">No field parameters reference this object</div>';
+    } else {
+        fieldParams.forEach(fp => {
+            const item = createDependencyItem(fp, 'fieldParameter');
+            fieldParamsContainer.appendChild(item);
         });
     }
 
@@ -906,6 +934,12 @@ function createDependencyItem(item, type, showDAX = false) {
     } else if (type === 'visual') {
         const displayName = item.visualName || item.visualId;
         name.textContent = displayName;
+    } else if (type === 'calculationItem') {
+        name.textContent = item.name;
+    } else if (type === 'calculationGroup') {
+        name.textContent = item.name;
+    } else if (type === 'fieldParameter') {
+        name.textContent = item.name;
     }
 
     header.appendChild(name);
@@ -923,6 +957,22 @@ function createDependencyItem(item, type, showDAX = false) {
         const details = document.createElement('div');
         details.className = 'dependency-item-details';
         details.textContent = `Page: ${item.pageName} | Type: ${item.visualType}`;
+        div.appendChild(details);
+    }
+
+    // Add details for calculation items
+    if (type === 'calculationItem') {
+        const details = document.createElement('div');
+        details.className = 'dependency-item-details';
+        details.textContent = `Calculation Group: ${item.tableName}${item.usesSelectedMeasure ? ' | Uses SELECTEDMEASURE()' : ''}`;
+        div.appendChild(details);
+    }
+
+    // Add details for field parameters
+    if (type === 'fieldParameter') {
+        const details = document.createElement('div');
+        details.className = 'dependency-item-details';
+        details.textContent = `Field Parameter Table`;
         div.appendChild(details);
     }
 

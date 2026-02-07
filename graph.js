@@ -90,7 +90,9 @@ class GraphVisualizer {
         const groups = [
             { type: 'tables', label: 'Tables', items: upstream.tables, color: '#7b5ea7' },
             { type: 'columns', label: 'Columns', items: upstream.columns, color: '#4a7c59' },
-            { type: 'measures', label: 'Measures', items: upstream.measures, color: '#1a3a5c' }
+            { type: 'measures', label: 'Measures', items: upstream.measures, color: '#1a3a5c' },
+            { type: 'calculationItems', label: 'Calculation Items', items: upstream.calculationItems, color: '#1a8a7b' },
+            { type: 'fieldParameters', label: 'Field Parameters', items: upstream.fieldParameters, color: '#d4763a' }
         ];
 
         let hasItems = false;
@@ -185,6 +187,20 @@ class GraphVisualizer {
             hasItems = true;
             const measuresGroup = this.createNodeGroup('Measures', downstream.measures, '#1a3a5c', 'downstream');
             content.appendChild(measuresGroup);
+        }
+
+        // Handle calculation items
+        if (downstream.calculationItems && downstream.calculationItems.length > 0) {
+            hasItems = true;
+            const calcGroup = this.createNodeGroup('Calculation Items', downstream.calculationItems, '#1a8a7b', 'downstream');
+            content.appendChild(calcGroup);
+        }
+
+        // Handle field parameters
+        if (downstream.fieldParameters && downstream.fieldParameters.length > 0) {
+            hasItems = true;
+            const fpGroup = this.createNodeGroup('Field Parameters', downstream.fieldParameters, '#d4763a', 'downstream');
+            content.appendChild(fpGroup);
         }
 
         // Handle visuals with page grouping
@@ -288,6 +304,15 @@ class GraphVisualizer {
             displayName = item.visualName || item.visualId;
             // When in page group, only show visual type (page name is in group header)
             subtitle = isInPageGroup ? item.visualType : `${item.pageName} | ${item.visualType}`;
+        } else if (item.type === 'calculationGroup') {
+            displayName = item.name;
+            subtitle = 'Calculation Group';
+        } else if (item.type === 'calculationItem') {
+            displayName = item.name;
+            subtitle = item.tableName;
+        } else if (item.type === 'fieldParameter') {
+            displayName = item.name;
+            subtitle = 'Field Parameter';
         }
 
         const nameEl = document.createElement('div');
@@ -444,7 +469,10 @@ class GraphVisualizer {
             measure: '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">calculate</span>',
             column: '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">view_column</span>',
             table: '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">table_chart</span>',
-            visual: '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">dashboard</span>'
+            visual: '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">dashboard</span>',
+            calculationGroup: '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">functions</span>',
+            calculationItem: '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">functions</span>',
+            fieldParameter: '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">tune</span>'
         };
         return icons[type] || '';
     }
