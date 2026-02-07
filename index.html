@@ -142,7 +142,20 @@
                             </select>
                         </div>
 
-                        <button id="analyzeBtn" class="btn btn-primary btn-full-width" disabled>Analyze Impact</button>
+                        <!-- Operation Toggle -->
+                        <div class="form-group" id="operationToggleGroup">
+                            <label>Operation:</label>
+                            <div class="operation-toggle">
+                                <button class="op-toggle-btn active" data-op="rename">
+                                    <span class="material-symbols-outlined">edit</span> Rename
+                                </button>
+                                <button class="op-toggle-btn" data-op="delete">
+                                    <span class="material-symbols-outlined">delete</span> Delete
+                                </button>
+                            </div>
+                        </div>
+
+                        <button id="analyzeBtn" class="btn btn-primary btn-full-width" disabled>Analyze Rename Impact</button>
                     </aside>
 
                     <!-- Main Content Area -->

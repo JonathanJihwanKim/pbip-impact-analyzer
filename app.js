@@ -75,6 +75,16 @@ function setupEventListeners() {
     document.getElementById('visualSelect').addEventListener('change', handleVisualSelectChange);
     document.getElementById('analyzeBtn').addEventListener('click', handleAnalyzeImpact);
 
+    // Operation toggle (rename vs delete)
+    document.querySelectorAll('.op-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.op-toggle-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            analyzeBtn.textContent = btn.dataset.op === 'delete' ? 'Analyze Delete Impact' : 'Analyze Rename Impact';
+        });
+    });
+
     // Safe Refactoring tab
     document.getElementById('refactorTypeSelect').addEventListener('change', handleRefactorTypeChange);
     document.getElementById('refactorObjectSelect').addEventListener('change', handleRefactorObjectChange);
@@ -604,23 +614,33 @@ function handleAnalyzeImpact() {
 
     if (!nodeId) return;
 
-    // Perform enhanced impact analysis (operation doesn't affect impact results)
-    const result = dependencyAnalyzer.analyzeImpactEnhanced(nodeId, 'rename');
+    // Check operation mode
+    const activeOp = document.querySelector('.op-toggle-btn.active');
+    const operation = activeOp ? activeOp.dataset.op : 'rename';
 
-    // Store current result for other tabs
-    currentImpactResult = { nodeId, result };
+    if (operation === 'delete') {
+        // Perform delete analysis
+        const result = dependencyAnalyzer.analyzeDelete(nodeId);
+        currentImpactResult = { nodeId, result, operation: 'delete' };
+        displayDeleteResults(result);
 
-    // Record in session history
-    if (sessionManager) {
-        sessionManager.addRecentAnalysis(nodeId, result.targetName, result.targetType);
-        refreshQuickAccessPanel();
+        // Still update lineage with the rename view for context
+        const renameResult = dependencyAnalyzer.analyzeImpactEnhanced(nodeId, 'rename');
+        graphVisualizer.renderMiniLineage(nodeId, renameResult);
+    } else {
+        // Perform enhanced impact analysis
+        const result = dependencyAnalyzer.analyzeImpactEnhanced(nodeId, 'rename');
+        currentImpactResult = { nodeId, result, operation: 'rename' };
+
+        // Record in session history
+        if (sessionManager) {
+            sessionManager.addRecentAnalysis(nodeId, result.targetName, result.targetType);
+            refreshQuickAccessPanel();
+        }
+
+        displayImpactResults(result);
+        graphVisualizer.renderMiniLineage(nodeId, result);
     }
-
-    // Display results
-    displayImpactResults(result);
-
-    // Update mini lineage visualization
-    graphVisualizer.renderMiniLineage(nodeId, result);
 }
 
 /**
@@ -662,8 +682,22 @@ function displayImpactResults(result) {
         daxContainer.classList.add('hidden');
     }
 
-    // For visuals: show mini-map and summary above results
+    // Clean up any delete-mode elements
     const selectedPanel = document.querySelector('.selected-object-panel');
+    const existingRiskBadge = selectedPanel.querySelector('.delete-risk-badge');
+    if (existingRiskBadge) existingRiskBadge.remove();
+
+    // Restore upstream/downstream column headers from delete mode
+    document.querySelector('.upstream-column h3').textContent = 'Upstream Dependencies';
+    document.querySelector('.downstream-column h3').textContent = 'Downstream Dependents';
+
+    // Restore section toggle labels
+    const tablesToggle = document.querySelector('[data-section="upstream-tables"]');
+    const columnsToggle = document.querySelector('[data-section="upstream-columns"]');
+    const measuresToggle = document.querySelector('[data-section="upstream-measures"]');
+    // These will be updated with correct counts by displayUpstreamDependencies
+
+    // For visuals: show mini-map and summary above results
     const existingMiniMap = selectedPanel.querySelector('.visual-position-info');
     const existingVisualSummary = selectedPanel.querySelector('.visual-upstream-summary');
     if (existingMiniMap) existingMiniMap.remove();
@@ -740,6 +774,283 @@ function displayImpactResults(result) {
 }
 
 /**
+ * Display delete analysis results
+ * @param {Object} result - Delete analysis result from analyzeDelete()
+ */
+function displayDeleteResults(result) {
+    const resultsContainer = document.getElementById('impactResults');
+    const placeholder = document.getElementById('impactPlaceholder');
+
+    if (result.error) {
+        console.error('Delete analysis error:', result.error);
+        return;
+    }
+
+    if (placeholder) placeholder.classList.add('hidden');
+
+    // Display selected object header
+    document.getElementById('selectedObjectName').textContent = `DELETE: ${result.targetName}`;
+
+    const daxContainer = document.getElementById('selectedObjectDAX');
+    if (result.targetDAX) {
+        daxContainer.innerHTML = `<pre><code>${escapeHtml(result.targetDAX)}</code></pre>`;
+        daxContainer.classList.remove('hidden');
+    } else {
+        daxContainer.classList.add('hidden');
+    }
+
+    // Clean up any visual-specific elements from rename mode
+    const selectedPanel = document.querySelector('.selected-object-panel');
+    const existingMiniMap = selectedPanel.querySelector('.visual-position-info');
+    const existingVisualSummary = selectedPanel.querySelector('.visual-upstream-summary');
+    const existingRiskBadge = selectedPanel.querySelector('.delete-risk-badge');
+    if (existingMiniMap) existingMiniMap.remove();
+    if (existingVisualSummary) existingVisualSummary.remove();
+    if (existingRiskBadge) existingRiskBadge.remove();
+
+    // Add risk badge
+    const riskBadge = document.createElement('div');
+    riskBadge.className = `delete-risk-badge risk-${result.riskLevel}`;
+    const riskIcons = { safe: 'check_circle', caution: 'warning', dangerous: 'dangerous' };
+    const riskLabels = { safe: 'Safe to Delete', caution: 'Caution', dangerous: 'Dangerous' };
+    riskBadge.innerHTML = `<span class="material-symbols-outlined">${riskIcons[result.riskLevel]}</span> ${riskLabels[result.riskLevel]} — ${result.totalBreaks} break${result.totalBreaks !== 1 ? 's' : ''}`;
+    if (result.safeMessage) {
+        riskBadge.innerHTML += `<span class="risk-detail">${escapeHtml(result.safeMessage)}</span>`;
+    }
+    selectedPanel.appendChild(riskBadge);
+
+    // Use the split view for direct vs cascade breaks
+    const splitView = document.querySelector('.impact-split-view');
+    splitView.classList.remove('visual-upstream-only');
+
+    // Upstream column becomes "Direct Breaks"
+    const upstreamColumn = document.querySelector('.upstream-column');
+    upstreamColumn.querySelector('h3').textContent = 'Direct Breaks';
+    const directTotal = result.directBreaks.measures.length + result.directBreaks.visuals.length + result.directBreaks.relationships.length;
+    document.getElementById('upstreamCount').textContent = directTotal;
+
+    // Repurpose upstream sections for direct breaks
+    document.getElementById('upstreamTablesCount').textContent = result.directBreaks.relationships.length;
+    document.querySelector('[data-section="upstream-tables"]').innerHTML = `<span class="toggle-icon material-symbols-outlined">expand_more</span> Relationships (${result.directBreaks.relationships.length})`;
+    const relList = document.getElementById('upstreamTablesList');
+    relList.innerHTML = '';
+    if (result.directBreaks.relationships.length === 0) {
+        relList.innerHTML = '<div class="empty-results">No relationship breaks</div>';
+    } else {
+        result.directBreaks.relationships.forEach(rel => {
+            const div = document.createElement('div');
+            div.className = 'dependency-item depth-1 break-item';
+            div.innerHTML = `<div class="dependency-item-header"><span class="dependency-item-name broken-ref">${escapeHtml(rel.fromTable)}[${escapeHtml(rel.fromColumn)}] → ${escapeHtml(rel.toTable)}[${escapeHtml(rel.toColumn)}]</span><span class="depth-badge break-badge">Relationship</span></div>`;
+            relList.appendChild(div);
+        });
+    }
+
+    document.getElementById('upstreamColumnsCount').textContent = result.directBreaks.measures.length;
+    document.querySelector('[data-section="upstream-columns"]').innerHTML = `<span class="toggle-icon material-symbols-outlined">expand_more</span> Measures (${result.directBreaks.measures.length})`;
+    const directMeasuresList = document.getElementById('upstreamColumnsList');
+    directMeasuresList.innerHTML = '';
+    if (result.directBreaks.measures.length === 0) {
+        directMeasuresList.innerHTML = '<div class="empty-results">No measure breaks</div>';
+    } else {
+        result.directBreaks.measures.forEach(m => {
+            const item = createDeleteBreakItem(m, 'measure', result.targetName);
+            directMeasuresList.appendChild(item);
+        });
+    }
+
+    document.getElementById('upstreamMeasuresCount').textContent = result.directBreaks.visuals.length;
+    document.querySelector('[data-section="upstream-measures"]').innerHTML = `<span class="toggle-icon material-symbols-outlined">expand_more</span> Visuals (${result.directBreaks.visuals.length})`;
+    const directVisualsList = document.getElementById('upstreamMeasuresList');
+    directVisualsList.innerHTML = '';
+    if (result.directBreaks.visuals.length === 0) {
+        directVisualsList.innerHTML = '<div class="empty-results">No visual breaks</div>';
+    } else {
+        result.directBreaks.visuals.forEach(v => {
+            const item = createDeleteBreakItem(v, 'visual', result.targetName);
+            directVisualsList.appendChild(item);
+        });
+    }
+
+    // Downstream column becomes "Cascade Breaks"
+    const downstreamColumn = document.querySelector('.downstream-column');
+    downstreamColumn.classList.remove('hidden');
+    downstreamColumn.querySelector('h3').textContent = 'Cascade Breaks';
+    const cascadeTotal = result.cascadeBreaks.measures.length + result.cascadeBreaks.visuals.length;
+    document.getElementById('downstreamCount').textContent = cascadeTotal;
+
+    document.getElementById('downstreamMeasuresCount').textContent = result.cascadeBreaks.measures.length;
+    const cascadeMeasuresList = document.getElementById('downstreamMeasuresList');
+    cascadeMeasuresList.innerHTML = '';
+    if (result.cascadeBreaks.measures.length === 0) {
+        cascadeMeasuresList.innerHTML = '<div class="empty-results">No cascade measure breaks</div>';
+    } else {
+        result.cascadeBreaks.measures.forEach(m => {
+            const item = createDeleteBreakItem(m, 'measure', result.targetName);
+            cascadeMeasuresList.appendChild(item);
+        });
+    }
+
+    document.getElementById('downstreamVisualsCount').textContent = result.cascadeBreaks.visuals.length;
+    const cascadeVisualsList = document.getElementById('downstreamVisualsList');
+    cascadeVisualsList.innerHTML = '';
+    if (result.cascadeBreaks.visuals.length === 0) {
+        cascadeVisualsList.innerHTML = '<div class="empty-results">No cascade visual breaks</div>';
+    } else {
+        result.cascadeBreaks.visuals.forEach(v => {
+            const item = createDeleteBreakItem(v, 'visual', result.targetName);
+            cascadeVisualsList.appendChild(item);
+        });
+    }
+
+    // Setup section toggle handlers
+    document.querySelectorAll('.section-toggle').forEach(btn => {
+        btn.addEventListener('click', handleSectionToggle);
+    });
+
+    // Show action buttons (hide refactor btn for delete mode)
+    const actionsContainer = document.getElementById('impactActions');
+    if (actionsContainer) actionsContainer.classList.remove('hidden');
+    const refactorBtn = document.getElementById('proceedToRefactorBtn');
+    if (refactorBtn) refactorBtn.classList.add('hidden');
+    const lineageBtn = document.getElementById('viewLineageBtn');
+    if (lineageBtn) lineageBtn.onclick = () => switchTab('graph');
+    const csvBtn = document.getElementById('exportCSVBtn');
+    if (csvBtn) csvBtn.onclick = () => exportDeleteAsCSV(result);
+
+    resultsContainer.classList.remove('hidden');
+}
+
+/**
+ * Create a break item element for delete analysis
+ */
+function createDeleteBreakItem(item, type, deletedName) {
+    const div = document.createElement('div');
+    div.className = `dependency-item depth-${Math.min(item.depth || 1, 4)} break-item`;
+
+    const header = document.createElement('div');
+    header.className = 'dependency-item-header';
+
+    const name = document.createElement('span');
+    name.className = 'dependency-item-name';
+    if (type === 'measure') {
+        name.innerHTML = `<span class="broken-ref">${escapeHtml(item.name)}</span>`;
+    } else if (type === 'visual') {
+        const displayName = item.visualName || item.visualId;
+        name.innerHTML = `<span class="broken-ref">${escapeHtml(displayName)}</span>`;
+    }
+    header.appendChild(name);
+
+    const badge = document.createElement('span');
+    badge.className = 'depth-badge break-badge';
+    badge.textContent = item.depth === 1 ? 'Direct' : `Cascade (depth ${item.depth})`;
+    header.appendChild(badge);
+
+    div.appendChild(header);
+
+    if (type === 'visual') {
+        const details = document.createElement('div');
+        details.className = 'dependency-item-details';
+        details.textContent = `Page: ${item.pageName} | Type: ${item.visualType}`;
+        div.appendChild(details);
+    }
+
+    // Show DAX with broken reference highlighted for measures
+    if (type === 'measure' && item.dax) {
+        const daxExpandable = document.createElement('div');
+        daxExpandable.className = 'dax-expandable';
+
+        const daxBtn = document.createElement('button');
+        daxBtn.className = 'dax-toggle-btn';
+        daxBtn.textContent = 'Show DAX';
+
+        const daxCode = document.createElement('div');
+        daxCode.className = 'dax-code-container';
+        // Highlight the deleted name in the DAX
+        const highlightedDAX = highlightBrokenRef(item.dax, deletedName);
+        daxCode.innerHTML = `<pre>${highlightedDAX}</pre>`;
+
+        daxBtn.onclick = () => toggleDAX(daxBtn, daxCode);
+        daxExpandable.appendChild(daxBtn);
+        daxExpandable.appendChild(daxCode);
+        div.appendChild(daxExpandable);
+    }
+
+    return div;
+}
+
+/**
+ * Highlight broken references in DAX code
+ */
+function highlightBrokenRef(dax, refName) {
+    if (!dax || !refName) return escapeHtml(dax);
+    // Escape the DAX first, then highlight the reference
+    const escaped = escapeHtml(dax);
+    const escapedRef = escapeHtml(refName);
+    // Match [RefName] or 'Table'[RefName] patterns in the escaped text
+    const pattern = new RegExp(`(\\[${escapedRef.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\])`, 'gi');
+    return escaped.replace(pattern, '<span class="broken-ref-highlight">$1</span>');
+}
+
+/**
+ * Export delete analysis as CSV
+ */
+function exportDeleteAsCSV(result) {
+    if (!result) {
+        alert('No delete analysis results to export');
+        return;
+    }
+
+    const rows = [];
+    rows.push(['Deleted Object', 'Object Type', 'Risk Level', 'Break Type', 'Broken Item', 'Item Type', 'Depth']);
+
+    const objectName = result.targetName;
+    const objectType = result.targetType;
+    const risk = result.riskLevel;
+
+    // Direct breaks
+    result.directBreaks.measures.forEach(item => {
+        rows.push([objectName, objectType, risk, 'Direct', item.name, 'Measure', item.depth]);
+    });
+    result.directBreaks.visuals.forEach(item => {
+        const visualName = item.pageName ? `${item.pageName}/${item.visualId}` : item.visualId;
+        rows.push([objectName, objectType, risk, 'Direct', visualName, 'Visual', item.depth]);
+    });
+    result.directBreaks.relationships.forEach(rel => {
+        const relName = `${rel.fromTable}[${rel.fromColumn}] -> ${rel.toTable}[${rel.toColumn}]`;
+        rows.push([objectName, objectType, risk, 'Direct', relName, 'Relationship', 1]);
+    });
+
+    // Cascade breaks
+    result.cascadeBreaks.measures.forEach(item => {
+        rows.push([objectName, objectType, risk, 'Cascade', item.name, 'Measure', item.depth]);
+    });
+    result.cascadeBreaks.visuals.forEach(item => {
+        const visualName = item.pageName ? `${item.pageName}/${item.visualId}` : item.visualId;
+        rows.push([objectName, objectType, risk, 'Cascade', visualName, 'Visual', item.depth]);
+    });
+
+    const csvContent = rows.map(row =>
+        row.map(cell => {
+            const cellStr = String(cell);
+            if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
+                return `"${cellStr.replace(/"/g, '""')}"`;
+            }
+            return cellStr;
+        }).join(',')
+    ).join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const timestamp = new Date().toISOString().slice(0, 10);
+    link.download = `delete-impact-${objectName}-${timestamp}.csv`;
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    URL.revokeObjectURL(link.href);
+
+    showNotification(`CSV exported: ${rows.length - 1} breaks`, 'success');
+}
+
+/**
  * Update action buttons after impact analysis
  */
 function updateImpactActionButtons(result) {
@@ -809,6 +1120,14 @@ function proceedToRefactoring(result) {
  * @param {string} targetType - Type of the analyzed object (measure/column)
  */
 function displayUpstreamDependencies(upstream, targetName, targetType) {
+    // Restore toggle labels (may have been overwritten by delete mode)
+    document.querySelector('[data-section="upstream-tables"]').innerHTML =
+        `<span class="toggle-icon material-symbols-outlined">expand_more</span> Tables (<span id="upstreamTablesCount">0</span>)`;
+    document.querySelector('[data-section="upstream-columns"]').innerHTML =
+        `<span class="toggle-icon material-symbols-outlined">expand_more</span> Columns (<span id="upstreamColumnsCount">0</span>)`;
+    document.querySelector('[data-section="upstream-measures"]').innerHTML =
+        `<span class="toggle-icon material-symbols-outlined">expand_more</span> Measures (<span id="upstreamMeasuresCount">0</span>)`;
+
     // Update counts
     document.getElementById('upstreamCount').textContent = upstream.totalCount || 0;
     document.getElementById('upstreamTablesCount').textContent = upstream.tables.length;

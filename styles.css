@@ -1019,6 +1019,122 @@ footer .sponsor-link:hover {
     grid-template-columns: 1fr;
 }
 
+/* Operation Toggle (Rename vs Delete) */
+.operation-toggle {
+    display: flex;
+    gap: 0;
+    border: 2px solid var(--border-color);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+}
+
+.op-toggle-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border: none;
+    background-color: var(--surface-color);
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.op-toggle-btn:first-child {
+    border-right: 1px solid var(--border-color);
+}
+
+.op-toggle-btn:hover {
+    background-color: var(--accent-cream);
+}
+
+.op-toggle-btn.active {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.op-toggle-btn.active[data-op="delete"] {
+    background-color: var(--danger-color);
+}
+
+.op-toggle-btn .material-symbols-outlined {
+    font-size: 16px;
+}
+
+/* Delete Analysis Risk Badges */
+.delete-risk-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-radius: var(--border-radius);
+    font-weight: 700;
+    font-family: 'Playfair Display', Georgia, serif;
+    margin-top: 15px;
+    border: 2px solid;
+    flex-wrap: wrap;
+}
+
+.delete-risk-badge .material-symbols-outlined {
+    font-size: 20px;
+}
+
+.delete-risk-badge .risk-detail {
+    display: block;
+    width: 100%;
+    font-weight: 400;
+    font-family: 'Source Serif 4', Georgia, serif;
+    font-size: 0.9rem;
+    margin-top: 4px;
+}
+
+.risk-safe {
+    background-color: #edf7ed;
+    border-color: var(--success-color);
+    color: var(--success-color);
+}
+
+.risk-caution {
+    background-color: #fdf6e8;
+    border-color: var(--accent-ochre);
+    color: #6b5a28;
+}
+
+.risk-dangerous {
+    background-color: #fdf0f0;
+    border-color: var(--danger-color);
+    color: var(--danger-color);
+}
+
+/* Broken Reference Highlighting */
+.broken-ref {
+    color: var(--danger-color);
+    font-weight: 700;
+}
+
+.broken-ref-highlight {
+    background-color: rgba(193, 68, 14, 0.15);
+    color: var(--danger-color);
+    font-weight: 700;
+    border-bottom: 2px solid var(--danger-color);
+    padding: 0 2px;
+}
+
+/* Break Items */
+.break-item {
+    border-left-color: var(--danger-color) !important;
+}
+
+.break-badge {
+    background-color: var(--danger-color) !important;
+    color: white !important;
+}
+
 /* Utility Classes */
 .hidden {
     display: none !important;
