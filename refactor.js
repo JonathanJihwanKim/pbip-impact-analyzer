@@ -41,12 +41,19 @@ class RefactoringEngine {
         }
 
         // Check for name conflicts
-        const nodeId = nodeType === 'measure'
-            ? `Measure.${newName}`
-            : `${tableName}.${newName}`;
+        if (nodeType === 'table') {
+            const tableNodeId = `Table.${newName}`;
+            if (this.analyzer.dependencyGraph.nodes[tableNodeId]) {
+                throw new Error(`A table with name "${newName}" already exists`);
+            }
+        } else {
+            const nodeId = nodeType === 'measure'
+                ? `Measure.${newName}`
+                : `${tableName}.${newName}`;
 
-        if (this.analyzer.dependencyGraph.nodes[nodeId]) {
-            throw new Error(`A ${nodeType} with name "${newName}" already exists`);
+            if (this.analyzer.dependencyGraph.nodes[nodeId]) {
+                throw new Error(`A ${nodeType} with name "${newName}" already exists`);
+            }
         }
 
         // Generate changes based on type
@@ -54,6 +61,8 @@ class RefactoringEngine {
             await this.previewMeasureRename(oldName, newName);
         } else if (nodeType === 'column') {
             await this.previewColumnRename(oldName, newName, tableName);
+        } else if (nodeType === 'table') {
+            await this.previewTableRename(oldName, newName);
         }
 
         console.log(`Preview complete: ${this.previewChanges.length} files will be modified`);
@@ -128,6 +137,147 @@ class RefactoringEngine {
         for (const rel of affectedRelationships) {
             await this.addRelationshipChange(oldName, newName, tableName, rel);
         }
+    }
+
+    /**
+     * Preview table rename operation with cascading updates
+     * @param {string} oldTableName - Current table name
+     * @param {string} newTableName - New table name
+     */
+    async previewTableRename(oldTableName, newTableName) {
+        const tableNodeId = `Table.${oldTableName}`;
+        const tableNode = this.analyzer.dependencyGraph.nodes[tableNodeId];
+
+        if (!tableNode) {
+            throw new Error(`Table "${oldTableName}" not found`);
+        }
+
+        // 1. TMDL file rename + update table declaration inside
+        this.previewChanges.push({
+            file: `definition/tables/${oldTableName}.tmdl`,
+            type: 'file-rename',
+            description: `Rename file "${oldTableName}.tmdl" to "${newTableName}.tmdl"`,
+            oldFileName: `${oldTableName}.tmdl`,
+            newFileName: `${newTableName}.tmdl`,
+            oldContent: `table '${oldTableName}'`,
+            newContent: `table '${newTableName}'`
+        });
+
+        // 2. Update all measure DAX that references this table
+        for (const measure of this.analyzer.measures) {
+            const oldDAX = measure.dax;
+            const newDAX = this.replaceTableNameInDAX(oldDAX, oldTableName, newTableName);
+
+            if (oldDAX !== newDAX) {
+                this.previewChanges.push({
+                    file: 'definition/tables/Measure.tmdl',
+                    type: 'table-dax-reference',
+                    description: `Update table references in measure "${measure.name}"`,
+                    oldContent: oldDAX.substring(0, 200) + (oldDAX.length > 200 ? '...' : ''),
+                    newContent: newDAX.substring(0, 200) + (newDAX.length > 200 ? '...' : ''),
+                    fullOldContent: oldDAX,
+                    fullNewContent: newDAX,
+                    affectedMeasureName: measure.name
+                });
+            }
+        }
+
+        // 3. Update visual field references (Entity name)
+        for (const visual of this.analyzer.visuals) {
+            const visualNodeId = `${visual.pageId}/${visual.visualId}`;
+            const visualNode = this.analyzer.dependencyGraph.nodes[visualNodeId];
+            if (!visualNode) continue;
+
+            // Check if any field in this visual references the table being renamed
+            const hasTableRef = visual.fields.some(f =>
+                (f.type === 'column' && f.table === oldTableName) ||
+                (f.type === 'measure' && f.entity === oldTableName)
+            );
+
+            if (hasTableRef) {
+                this.previewChanges.push({
+                    file: `definition/pages/${visual.pageId}/visuals/${visual.visualId}/visual.json`,
+                    type: 'visual-entity-reference',
+                    description: `Update table entity in visual ${visual.visualId} on page ${visual.pageId}`,
+                    oldContent: `"Entity": "${oldTableName}"`,
+                    newContent: `"Entity": "${newTableName}"`
+                });
+            }
+        }
+
+        // 4. Update relationships
+        for (const rel of this.analyzer.relationships) {
+            if (rel.fromTable === oldTableName) {
+                this.previewChanges.push({
+                    file: 'definition/relationships.tmdl',
+                    type: 'relationship-table-reference',
+                    description: `Update fromTable in relationship "${rel.name}"`,
+                    oldContent: `${oldTableName}.${rel.fromColumn}`,
+                    newContent: `${newTableName}.${rel.fromColumn}`
+                });
+            }
+            if (rel.toTable === oldTableName) {
+                this.previewChanges.push({
+                    file: 'definition/relationships.tmdl',
+                    type: 'relationship-table-reference',
+                    description: `Update toTable in relationship "${rel.name}"`,
+                    oldContent: `${oldTableName}.${rel.toColumn}`,
+                    newContent: `${newTableName}.${rel.toColumn}`
+                });
+            }
+        }
+    }
+
+    /**
+     * Replace table name in DAX expression
+     * Handles: Table[Column], 'Table'[Column], COUNTROWS(Table), COUNTROWS('Table'), etc.
+     * @param {string} dax - The DAX expression
+     * @param {string} oldTableName - Old table name
+     * @param {string} newTableName - New table name
+     * @returns {string} Updated DAX
+     */
+    replaceTableNameInDAX(dax, oldTableName, newTableName) {
+        let result = dax;
+
+        // Determine if the new table name needs quoting (has spaces or special chars)
+        const needsQuotes = /\s/.test(newTableName);
+
+        // Pattern 1: Unquoted table name before column reference: TableName[Column]
+        const pattern1 = new RegExp(
+            `(?<!')${this.escapeRegex(oldTableName)}\\[`,
+            'gi'
+        );
+        result = result.replace(pattern1, (match) => {
+            const replacement = needsQuotes ? `'${newTableName}'[` : `${newTableName}[`;
+            return replacement;
+        });
+
+        // Pattern 2: Quoted table name before column reference: 'Table Name'[Column]
+        const pattern2 = new RegExp(
+            `'${this.escapeRegex(oldTableName)}'\\[`,
+            'gi'
+        );
+        result = result.replace(pattern2, `'${newTableName}'[`);
+
+        // Pattern 3: Table name in function arguments (unquoted): COUNTROWS(TableName)
+        const tableFunctions = 'COUNTROWS|RELATEDTABLE|VALUES|ALL|DISTINCT|SUMMARIZE|ADDCOLUMNS|SELECTCOLUMNS|FILTER|CALCULATETABLE|TOPN|SAMPLE|GENERATE|GENERATEALL|NATURALLEFTOUTERJOIN|NATURALINNERJOIN|CROSSJOIN|UNION|INTERSECT|EXCEPT|DATATABLE|TREATAS';
+        const pattern3 = new RegExp(
+            `((?:${tableFunctions})\\s*\\(\\s*)(?<!')${this.escapeRegex(oldTableName)}(\\s*[,)])`,
+            'gi'
+        );
+        result = result.replace(pattern3, (match, prefix, suffix) => {
+            const replacement = needsQuotes ? `${prefix}'${newTableName}'${suffix}` : `${prefix}${newTableName}${suffix}`;
+            return replacement;
+        });
+
+        // Pattern 4: Table name in function arguments (quoted): COUNTROWS('Table Name')
+        const pattern4 = new RegExp(
+            `((?:${tableFunctions})\\s*\\(\\s*)'${this.escapeRegex(oldTableName)}'(\\s*[,)])`,
+            'gi'
+        );
+        result = result.replace(pattern4, `$1'${newTableName}'$2`);
+
+        return result;
     }
 
     /**
@@ -335,10 +485,13 @@ class RefactoringEngine {
         this.backups.clear();
 
         try {
-            // Group changes by file
-            const changesByFile = {};
+            // Separate file-rename changes from content changes
+            const fileRenameChanges = this.previewChanges.filter(c => c.type === 'file-rename');
+            const contentChanges = this.previewChanges.filter(c => c.type !== 'file-rename');
 
-            for (const change of this.previewChanges) {
+            // Group content changes by file
+            const changesByFile = {};
+            for (const change of contentChanges) {
                 if (!changesByFile[change.file]) {
                     changesByFile[change.file] = [];
                 }
@@ -347,7 +500,13 @@ class RefactoringEngine {
 
             const filesModified = [];
 
-            // Apply changes file by file
+            // Apply file rename changes first (rename + update content inside)
+            for (const change of fileRenameChanges) {
+                await this.applyFileRename(change);
+                filesModified.push(change.file);
+            }
+
+            // Apply content changes file by file
             for (const [filePath, changes] of Object.entries(changesByFile)) {
                 await this.applyChangesToFile(filePath, changes);
                 filesModified.push(filePath);
@@ -437,11 +596,20 @@ class RefactoringEngine {
         console.log(`Rolling back ${this.backups.size} files...`);
         const failures = [];
 
-        for (const [filePath, originalContent] of this.backups) {
+        for (const [filePath, backup] of this.backups) {
             try {
-                const fileHandle = await this.getFileHandleFromPath(filePath);
-                await this.fileAccess.writeFile(fileHandle, originalContent);
-                console.log(`Restored ${filePath}`);
+                if (backup && typeof backup === 'object' && backup.type === 'file-rename') {
+                    // Rollback a file rename: rename back and restore original content
+                    await this.fileAccess.renameFile(backup.dirHandle, backup.newFileName, backup.oldFileName);
+                    const restoredHandle = await backup.dirHandle.getFileHandle(backup.oldFileName);
+                    await this.fileAccess.writeFile(restoredHandle, backup.originalContent);
+                    console.log(`Restored file rename: ${backup.newFileName} → ${backup.oldFileName}`);
+                } else {
+                    // Rollback a content change
+                    const fileHandle = await this.getFileHandleFromPath(filePath);
+                    await this.fileAccess.writeFile(fileHandle, backup);
+                    console.log(`Restored ${filePath}`);
+                }
             } catch (error) {
                 console.error(`Failed to restore ${filePath}:`, error);
                 failures.push({ filePath, error: error.message });
@@ -485,6 +653,57 @@ class RefactoringEngine {
     }
 
     /**
+     * Apply a file rename change (rename TMDL file + update content inside)
+     * @param {Object} change - The file-rename change object
+     */
+    async applyFileRename(change) {
+        console.log(`Renaming file: ${change.oldFileName} → ${change.newFileName}`);
+
+        try {
+            // Navigate to the directory containing the file
+            const parts = change.file.split('/');
+            let currentHandle = this.fileAccess.semanticModelHandle;
+            for (let i = 0; i < parts.length - 1; i++) {
+                currentHandle = await currentHandle.getDirectoryHandle(parts[i]);
+            }
+
+            // Read current file content for backup
+            const oldFileHandle = await currentHandle.getFileHandle(change.oldFileName);
+            const oldFile = await oldFileHandle.getFile();
+            const originalContent = await oldFile.text();
+
+            // Store backup with old filename for rollback
+            this.backups.set(change.file, {
+                type: 'file-rename',
+                dirHandle: currentHandle,
+                oldFileName: change.oldFileName,
+                newFileName: change.newFileName,
+                originalContent: originalContent
+            });
+
+            // Update content (table declaration) inside the file
+            let newContent = originalContent;
+            if (change.oldContent && change.newContent) {
+                newContent = newContent.split(change.oldContent).join(change.newContent);
+            }
+
+            // Perform the rename via FileAccessManager
+            await this.fileAccess.renameFile(currentHandle, change.oldFileName, change.newFileName);
+
+            // If content was updated, write the modified content to the new file
+            if (newContent !== originalContent) {
+                const newFileHandle = await currentHandle.getFileHandle(change.newFileName);
+                await this.fileAccess.writeFile(newFileHandle, newContent);
+            }
+
+            console.log(`Successfully renamed ${change.oldFileName} → ${change.newFileName}`);
+        } catch (error) {
+            console.error(`Error renaming file ${change.oldFileName}:`, error);
+            throw new Error(`Failed to rename ${change.oldFileName}: ${error.message}`);
+        }
+    }
+
+    /**
      * Apply changes to a specific file
      * @param {string} filePath - Relative path to the file
      * @param {Array} changes - Array of change objects to apply
@@ -506,7 +725,7 @@ class RefactoringEngine {
             // 4. Apply all changes to this file
             for (const change of changes) {
                 // For DAX changes, use the full content stored during preview
-                if (change.type === 'measure-dax-reference' || change.type === 'column-dax-reference') {
+                if (change.type === 'measure-dax-reference' || change.type === 'column-dax-reference' || change.type === 'table-dax-reference') {
                     // Use full content for DAX replacements (oldContent/newContent are truncated for display)
                     if (change.fullOldContent && change.fullNewContent) {
                         if (content.includes(change.fullOldContent)) {

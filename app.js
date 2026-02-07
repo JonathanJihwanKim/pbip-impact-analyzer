@@ -393,6 +393,14 @@ function populateRefactorObjectSelect() {
                 objectSelect.appendChild(option);
             });
         });
+    } else if (type === 'table') {
+        parsedData.tables.forEach(table => {
+            const option = document.createElement('option');
+            option.value = table.tableName;
+            option.dataset.type = 'table';
+            option.textContent = table.tableName;
+            objectSelect.appendChild(option);
+        });
     }
 }
 
@@ -1028,6 +1036,8 @@ async function handlePreviewRefactor() {
     } else if (type === 'column') {
         tableName = selectedOption.dataset.table;
         oldName = selectedOption.dataset.column;
+    } else if (type === 'table') {
+        oldName = selectedOption.value;
     }
 
     try {
