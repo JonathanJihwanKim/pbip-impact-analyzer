@@ -3,6 +3,11 @@
  * Orchestrates UI interactions and coordinates between modules
  */
 
+// Sponsor configuration — edit this array to add/remove sponsors
+const SPONSORS = [
+    // { name: 'Example Corp', logo: 'assets/sponsors/example.png', url: 'https://example.com' },
+];
+
 // Global state
 let fileAccessManager;
 let dependencyAnalyzer;
@@ -39,6 +44,9 @@ function init() {
     // Set up event listeners
     setupEventListeners();
 
+    // Render sponsor bar if sponsors are configured
+    renderSponsors();
+
     console.log('Application initialized successfully');
 }
 
@@ -58,6 +66,8 @@ function setupEventListeners() {
     // Impact Analysis tab
     document.getElementById('objectTypeSelect').addEventListener('change', handleObjectTypeChange);
     document.getElementById('objectSelect').addEventListener('change', handleObjectSelectChange);
+    document.getElementById('pageSelect').addEventListener('change', handlePageSelectChange);
+    document.getElementById('visualSelect').addEventListener('change', handleVisualSelectChange);
     document.getElementById('analyzeBtn').addEventListener('click', handleAnalyzeImpact);
 
     // Safe Refactoring tab
@@ -223,7 +233,8 @@ async function loadPBIPFiles() {
             visualType: visualData.visualType,
             visualName: visualData.visualName,
             fields: visualData.fields,
-            pageName: getPageDisplayName(visualFile.pageId)
+            pageName: getPageDisplayName(visualFile.pageId),
+            position: visualData.position
         });
     }
 
@@ -391,16 +402,32 @@ function populateRefactorObjectSelect() {
 function handleObjectTypeChange() {
     const typeSelect = document.getElementById('objectTypeSelect');
     const objectSelect = document.getElementById('objectSelect');
+    const objectSelectGroup = document.getElementById('objectSelectGroup');
+    const visualPickerGroup = document.getElementById('visualPickerGroup');
+    const visualSelectGroup = document.getElementById('visualSelectGroup');
     const analyzeBtn = document.getElementById('analyzeBtn');
     const impactResults = document.getElementById('impactResults');
     const placeholder = document.getElementById('impactPlaceholder');
 
-    if (!typeSelect.value) {
-        // No object type selected - clear and disable
-        objectSelect.innerHTML = '<option value="">-- Select a measure or column --</option>';
+    if (typeSelect.value === 'visual') {
+        // Show visual picker, hide regular object select
+        objectSelectGroup.classList.add('hidden');
+        visualPickerGroup.classList.remove('hidden');
+        visualSelectGroup.classList.remove('hidden');
+        populatePageSelect();
         analyzeBtn.disabled = true;
     } else {
-        populateImpactObjectSelect();
+        // Show regular object select, hide visual picker
+        objectSelectGroup.classList.remove('hidden');
+        visualPickerGroup.classList.add('hidden');
+        visualSelectGroup.classList.add('hidden');
+
+        if (!typeSelect.value) {
+            objectSelect.innerHTML = '<option value="">-- Select a measure or column --</option>';
+            analyzeBtn.disabled = true;
+        } else {
+            populateImpactObjectSelect();
+        }
     }
 
     // Hide results, show placeholder
@@ -419,12 +446,131 @@ function handleObjectSelectChange() {
 }
 
 /**
+ * Populate the page select dropdown for visual analysis
+ */
+function populatePageSelect() {
+    const pageSelect = document.getElementById('pageSelect');
+    const visualSelect = document.getElementById('visualSelect');
+
+    pageSelect.innerHTML = '<option value="">-- Select a page --</option>';
+    visualSelect.innerHTML = '<option value="">-- Select a visual --</option>';
+
+    if (!parsedData.pages || parsedData.pages.length === 0) {
+        pageSelect.innerHTML = '<option value="">No report loaded</option>';
+        return;
+    }
+
+    // Get unique pages that have visuals
+    const pagesWithVisuals = new Set(parsedData.visuals.map(v => v.pageId));
+
+    parsedData.pages.forEach(page => {
+        const pageId = page.pageId || page.name;
+        if (!pagesWithVisuals.has(pageId)) return;
+
+        const option = document.createElement('option');
+        option.value = pageId;
+        const displayName = page.content?.displayName || page.displayName || pageId;
+        option.textContent = displayName;
+        pageSelect.appendChild(option);
+    });
+}
+
+/**
+ * Populate the visual select dropdown for the selected page
+ * @param {string} pageId - The selected page ID
+ */
+function populateVisualSelect(pageId) {
+    const visualSelect = document.getElementById('visualSelect');
+    visualSelect.innerHTML = '<option value="">-- Select a visual --</option>';
+
+    if (!pageId) return;
+
+    const pageVisuals = parsedData.visuals.filter(v => v.pageId === pageId);
+
+    pageVisuals.forEach(visual => {
+        const option = document.createElement('option');
+        option.value = `${visual.pageId}/${visual.visualId}`;
+        const displayName = visual.visualName || visual.visualId;
+        option.textContent = `${visual.visualType} - ${displayName}`;
+        visualSelect.appendChild(option);
+    });
+}
+
+/**
+ * Handle page select change
+ */
+function handlePageSelectChange() {
+    const pageSelect = document.getElementById('pageSelect');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+
+    populateVisualSelect(pageSelect.value);
+    analyzeBtn.disabled = true;
+}
+
+/**
+ * Handle visual select change
+ */
+function handleVisualSelectChange() {
+    const visualSelect = document.getElementById('visualSelect');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+
+    analyzeBtn.disabled = !visualSelect.value;
+}
+
+/**
+ * Render a mini-map showing the visual's position on the page
+ * @param {Object} visual - Visual object with position data
+ * @returns {string} HTML string for the mini-map
+ */
+function renderVisualMiniMap(visual) {
+    if (!visual || !visual.position) return '';
+
+    // Standard Power BI page dimensions (16:9)
+    const pageWidth = 1280;
+    const pageHeight = 720;
+
+    const left = (visual.position.x / pageWidth) * 100;
+    const top = (visual.position.y / pageHeight) * 100;
+    const width = (visual.position.width / pageWidth) * 100;
+    const height = (visual.position.height / pageHeight) * 100;
+
+    // Use center point for zone detection
+    const centerX = left + width / 2;
+    const centerY = top + height / 2;
+    const hZone = centerX < 33 ? 'left' : centerX < 66 ? 'center' : 'right';
+    const vZone = centerY < 33 ? 'top' : centerY < 66 ? 'middle' : 'bottom';
+    const posLabel = vZone === 'middle' && hZone === 'center'
+        ? 'center'
+        : `${vZone}-${hZone}`;
+
+    return `
+        <div class="visual-position-info">
+            <div class="visual-minimap">
+                <div class="visual-minimap-highlight"
+                     style="left:${left}%;top:${top}%;width:${width}%;height:${height}%">
+                </div>
+            </div>
+            <span class="visual-position-label">
+                ${escapeHtml(visual.visualType)} &middot; ${posLabel} area
+            </span>
+        </div>
+    `;
+}
+
+/**
  * Handle analyze impact button click
  */
 function handleAnalyzeImpact() {
-    const objectSelect = document.getElementById('objectSelect');
+    const typeSelect = document.getElementById('objectTypeSelect');
+    let nodeId;
 
-    const nodeId = objectSelect.value;
+    if (typeSelect.value === 'visual') {
+        const visualSelect = document.getElementById('visualSelect');
+        nodeId = visualSelect.value;
+    } else {
+        const objectSelect = document.getElementById('objectSelect');
+        nodeId = objectSelect.value;
+    }
 
     if (!nodeId) return;
 
@@ -447,6 +593,7 @@ function handleAnalyzeImpact() {
 function displayImpactResults(result) {
     const resultsContainer = document.getElementById('impactResults');
     const placeholder = document.getElementById('impactPlaceholder');
+    const isVisual = result.targetType === 'visual';
 
     // Check for error
     if (result.error) {
@@ -468,11 +615,71 @@ function displayImpactResults(result) {
         daxContainer.classList.add('hidden');
     }
 
+    // For visuals: show mini-map and summary above results
+    const selectedPanel = document.querySelector('.selected-object-panel');
+    const existingMiniMap = selectedPanel.querySelector('.visual-position-info');
+    const existingVisualSummary = selectedPanel.querySelector('.visual-upstream-summary');
+    if (existingMiniMap) existingMiniMap.remove();
+    if (existingVisualSummary) existingVisualSummary.remove();
+
+    if (isVisual) {
+        // Find the visual data for the mini-map
+        const nodeId = result.targetNode;
+        const parts = nodeId.split('/');
+        const pageId = parts[0];
+        const visualId = parts[1];
+        const visual = parsedData.visuals.find(v => v.pageId === pageId && v.visualId === visualId);
+
+        if (visual) {
+            const miniMapHtml = renderVisualMiniMap(visual);
+            if (miniMapHtml) {
+                selectedPanel.insertAdjacentHTML('beforeend', miniMapHtml);
+            }
+        }
+
+        // Add visual summary
+        const upstream = result.upstream;
+        const measureCount = upstream.measures ? upstream.measures.length : 0;
+        const columnCount = upstream.columns ? upstream.columns.length : 0;
+        const tableCount = upstream.tables ? upstream.tables.length : 0;
+        const summaryParts = [];
+        if (measureCount > 0) summaryParts.push(`${measureCount} measure${measureCount !== 1 ? 's' : ''}`);
+        if (columnCount > 0) summaryParts.push(`${columnCount} column${columnCount !== 1 ? 's' : ''}`);
+        if (tableCount > 0) summaryParts.push(`from ${tableCount} table${tableCount !== 1 ? 's' : ''}`);
+
+        if (summaryParts.length > 0) {
+            const summaryDiv = document.createElement('div');
+            summaryDiv.className = 'visual-upstream-summary';
+            summaryDiv.textContent = `This visual uses ${summaryParts.join(', ')}`;
+            selectedPanel.appendChild(summaryDiv);
+        }
+    }
+
     // Display upstream dependencies
     displayUpstreamDependencies(result.upstream, result.targetName, result.targetType);
 
     // Display downstream dependents
     displayDownstreamDependents(result.downstream, result.targetName, result.targetType);
+
+    // For visuals, collapse the downstream column since visuals have no downstream dependents
+    const downstreamColumn = document.querySelector('.downstream-column');
+    if (downstreamColumn) {
+        if (isVisual) {
+            downstreamColumn.classList.add('hidden');
+        } else {
+            downstreamColumn.classList.remove('hidden');
+        }
+    }
+
+    // Adjust split view layout for visuals (full-width upstream)
+    const splitView = document.querySelector('.impact-split-view');
+    if (splitView) {
+        if (isVisual) {
+            splitView.classList.add('visual-upstream-only');
+        } else {
+            splitView.classList.remove('visual-upstream-only');
+        }
+    }
 
     // Setup section toggle handlers
     document.querySelectorAll('.section-toggle').forEach(btn => {
@@ -495,10 +702,15 @@ function updateImpactActionButtons(result) {
         actionsContainer.classList.remove('hidden');
     }
 
-    // Setup Proceed to Refactoring button
+    // Setup Proceed to Refactoring button (hide for visuals - can't rename visuals)
     const refactorBtn = document.getElementById('proceedToRefactorBtn');
     if (refactorBtn) {
-        refactorBtn.onclick = () => proceedToRefactoring(result);
+        if (result.targetType === 'visual') {
+            refactorBtn.classList.add('hidden');
+        } else {
+            refactorBtn.classList.remove('hidden');
+            refactorBtn.onclick = () => proceedToRefactoring(result);
+        }
     }
 
     // Setup View Lineage button
@@ -1625,6 +1837,33 @@ function displayCircularDependencyWarning(circularDeps) {
     banner.appendChild(closeBtn);
 
     document.body.insertBefore(banner, document.body.firstChild);
+}
+
+/**
+ * Render sponsor logos in the footer sponsor bar
+ */
+function renderSponsors() {
+    const bar = document.getElementById('sponsorBar');
+    const container = document.getElementById('sponsorLogos');
+    if (!SPONSORS.length || !bar || !container) return;
+
+    bar.classList.remove('hidden');
+    SPONSORS.forEach(sponsor => {
+        const link = document.createElement('a');
+        link.href = sponsor.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.title = sponsor.name;
+        link.className = 'sponsor-logo-link';
+
+        const img = document.createElement('img');
+        img.src = sponsor.logo;
+        img.alt = sponsor.name;
+        img.className = 'sponsor-logo';
+
+        link.appendChild(img);
+        container.appendChild(link);
+    });
 }
 
 // Initialize when DOM is ready

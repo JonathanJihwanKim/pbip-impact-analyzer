@@ -102,13 +102,28 @@
                                 <option value="">-- Select object type --</option>
                                 <option value="measure">Measure</option>
                                 <option value="column">Column</option>
+                                <option value="visual">Visual</option>
                             </select>
                         </div>
 
-                        <div class="form-group">
+                        <div class="form-group" id="objectSelectGroup">
                             <label for="objectSelect">Select Object:</label>
                             <select id="objectSelect" class="select">
                                 <option value="">-- Select a measure or column --</option>
+                            </select>
+                        </div>
+
+                        <!-- Visual picker (hidden by default, shown when objectType = "visual") -->
+                        <div id="visualPickerGroup" class="form-group hidden">
+                            <label for="pageSelect">Page:</label>
+                            <select id="pageSelect" class="select">
+                                <option value="">-- Select a page --</option>
+                            </select>
+                        </div>
+                        <div id="visualSelectGroup" class="form-group hidden">
+                            <label for="visualSelect">Visual:</label>
+                            <select id="visualSelect" class="select">
+                                <option value="">-- Select a visual --</option>
                             </select>
                         </div>
 
@@ -298,8 +313,20 @@
 
         <!-- Footer -->
         <footer>
+            <!-- Sponsor Bar (hidden when empty) -->
+            <div id="sponsorBar" class="sponsor-bar hidden">
+                <span class="sponsor-label">Sponsors</span>
+                <div id="sponsorLogos" class="sponsor-logos"></div>
+                <a href="https://github.com/sponsors/JonathanJihwanKim" target="_blank" class="become-sponsor-link">Become a sponsor</a>
+            </div>
+
+            <!-- Footer links -->
             <p>
                 <a href="https://github.com/JonathanJihwanKim/pbip-impact-analyzer" target="_blank">GitHub</a> |
+                <a href="https://github.com/sponsors/JonathanJihwanKim" target="_blank" class="sponsor-link">
+                    <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">volunteer_activism</span>
+                    Support this project
+                </a> |
                 Built with <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;color:var(--accent-red)">favorite</span> for the Power BI community
             </p>
         </footer>

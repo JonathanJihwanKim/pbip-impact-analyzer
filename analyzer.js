@@ -120,9 +120,11 @@ class DependencyAnalyzer {
     addVisualNodes() {
         for (const visual of this.visuals) {
             const nodeId = `${visual.pageId}/${visual.visualId}`;
+            const displayName = visual.visualName || visual.visualId;
 
             this.dependencyGraph.nodes[nodeId] = {
                 type: 'visual',
+                name: `${visual.visualType} - ${displayName}`,
                 pageId: visual.pageId,
                 visualId: visual.visualId,
                 visualType: visual.visualType,

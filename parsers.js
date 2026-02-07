@@ -249,20 +249,23 @@ class JSONParser {
             const visualType = visualData.visual?.visualType || visualData.visualType || 'unknown';
             const fields = this.extractFieldReferences(visualData);
             const visualName = this.extractVisualName(visualData);
+            const position = visualData.config?.layouts?.[0]?.position || null;
 
             return {
                 visualType: visualType,
                 visualName: visualName,
                 fields: fields,
                 title: visualData.title || '',
-                config: visualData.config || {}
+                config: visualData.config || {},
+                position: position
             };
         } catch (error) {
             console.error('Error parsing visual.json:', error);
             return {
                 visualType: 'unknown',
                 visualName: null,
-                fields: []
+                fields: [],
+                position: null
             };
         }
     }

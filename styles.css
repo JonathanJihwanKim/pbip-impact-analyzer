@@ -880,6 +880,119 @@ footer a:hover {
     text-decoration: underline;
 }
 
+footer .sponsor-link {
+    color: var(--accent-terracotta);
+    font-weight: 600;
+}
+
+footer .sponsor-link:hover {
+    color: var(--danger-color);
+}
+
+/* Sponsor Bar */
+.sponsor-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    padding: 12px 20px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.sponsor-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.sponsor-logos {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.sponsor-logo {
+    height: 28px;
+    width: auto;
+    opacity: 0.7;
+    filter: grayscale(30%);
+    transition: var(--transition);
+}
+
+.sponsor-logo-link:hover .sponsor-logo {
+    opacity: 1;
+    filter: grayscale(0%);
+}
+
+.become-sponsor-link {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border: 1px solid var(--border-color);
+    padding: 4px 10px;
+    border-radius: var(--border-radius);
+    transition: var(--transition);
+}
+
+.become-sponsor-link:hover {
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+/* Visual Position Mini-map */
+.visual-position-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    padding: 12px;
+    background: var(--surface-alt);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+}
+
+.visual-minimap {
+    position: relative;
+    width: 128px;
+    height: 72px;
+    background: var(--surface-color);
+    border: 2px solid var(--border-strong);
+    border-radius: var(--border-radius);
+    flex-shrink: 0;
+}
+
+.visual-minimap-highlight {
+    position: absolute;
+    background: rgba(26, 58, 92, 0.2);
+    border: 2px solid var(--primary-color);
+    border-radius: 1px;
+}
+
+.visual-position-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.visual-upstream-summary {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: var(--surface-alt);
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--accent-ochre);
+    border-radius: var(--border-radius);
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+/* Visual upstream-only layout (hide downstream, full-width upstream) */
+.impact-split-view.visual-upstream-only {
+    grid-template-columns: 1fr;
+}
+
 /* Utility Classes */
 .hidden {
     display: none !important;
