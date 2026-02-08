@@ -2720,18 +2720,6 @@ footer .sponsor-link:hover {
     color: var(--success-color);
 }
 
-@media (max-width: 768px) {
-    .selection-guide-steps {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 4px;
-    }
-
-    .guide-step-arrow {
-        display: none;
-    }
-}
-
 /* ── Toast Notifications ─────────────────────────────────── */
 
 .app-notification {

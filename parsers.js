@@ -318,7 +318,9 @@ class JSONParser {
             const visualType = visualData.visual?.visualType || visualData.visualType || 'unknown';
             const fields = this.extractFieldReferences(visualData);
             const visualName = this.extractVisualName(visualData);
-            const position = visualData.config?.layouts?.[0]?.position || null;
+            const position = visualData.position
+                || visualData.config?.layouts?.[0]?.position
+                || null;
 
             return {
                 visualType: visualType,

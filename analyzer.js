@@ -334,6 +334,30 @@ class DependencyAnalyzer {
                             to: colNodeId,
                             type: 'visual-to-column'
                         });
+                    } else {
+                        // Check if this column belongs to a field parameter table
+                        const paramNodeId = `FieldParam.${field.table}`;
+                        if (this.dependencyGraph.nodes[paramNodeId]) {
+                            visualNode.dependencies.push({
+                                type: 'fieldParameter',
+                                ref: paramNodeId,
+                                name: field.table
+                            });
+
+                            this.dependencyGraph.nodes[paramNodeId].usedBy.push({
+                                type: 'visual',
+                                ref: visualNodeId,
+                                pageId: visual.pageId,
+                                visualId: visual.visualId,
+                                visualType: visual.visualType
+                            });
+
+                            this.dependencyGraph.edges.push({
+                                from: visualNodeId,
+                                to: paramNodeId,
+                                type: 'visual-to-fieldParameter'
+                            });
+                        }
                     }
                 }
             }
