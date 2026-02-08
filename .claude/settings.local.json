@@ -15,7 +15,10 @@
       "Bash(git fetch:*)",
       "Bash(git -C \"D:/worktrees/merge-36\" checkout -B task-2-2/delete-analysis)",
       "Bash(git -C:*)",
-      "Bash(GIT_EDITOR=true git:*)"
+      "Bash(GIT_EDITOR=true git:*)",
+      "Bash(gh issue create --title \"[P1] Impact analysis error silently swallowed\" --body \"$\\(cat <<''EOF''\n## Bug\n\n**File:** `app.js:934-937`\n\nWhen `result.error` is truthy in `displayImpactResults\\(\\)`, the error is only `console.error\\(\\)`''d. The placeholder is already hidden, so the user sees an empty/stale results area with no indication that analysis failed.\n\n## Severity\n**Critical** — users get zero feedback on failure\n\n## Fix\nAdd `showError\\(\\)` call to display the error to the user before returning.\n\n## Found in\nCode review cycle 3\nEOF\n\\)\" --label \"bug,cycle-3\")",
+      "Bash(gh issue create:*)",
+      "Bash(gh issue close:*)"
     ]
   }
 }
