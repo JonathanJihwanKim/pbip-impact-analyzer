@@ -18,7 +18,14 @@
       "Bash(GIT_EDITOR=true git:*)",
       "Bash(gh issue create --title \"[P1] Impact analysis error silently swallowed\" --body \"$\\(cat <<''EOF''\n## Bug\n\n**File:** `app.js:934-937`\n\nWhen `result.error` is truthy in `displayImpactResults\\(\\)`, the error is only `console.error\\(\\)`''d. The placeholder is already hidden, so the user sees an empty/stale results area with no indication that analysis failed.\n\n## Severity\n**Critical** — users get zero feedback on failure\n\n## Fix\nAdd `showError\\(\\)` call to display the error to the user before returning.\n\n## Found in\nCode review cycle 3\nEOF\n\\)\" --label \"bug,cycle-3\")",
       "Bash(gh issue create:*)",
-      "Bash(gh issue close:*)"
+      "Bash(gh issue close:*)",
+      "Bash(gh issue view:*)",
+      "Bash(git worktree add:*)",
+      "Bash(git -C \"D:/worktrees/task-3-1-p2-bugfixes\" diff --stat)",
+      "Bash(git -C \"D:/worktrees/task-3-1-p2-bugfixes\" log --oneline -5)",
+      "Bash(git -C \"D:/worktrees/task-3-1-p2-bugfixes\" add app.js refactor.js styles.css)",
+      "Bash(git -C \"D:/worktrees/task-3-1-p2-bugfixes\" commit -m \"$\\(cat <<''EOF''\nfix: wire up dead validateChanges\\(\\), move banner styles to CSS, record delete analyses in session history\n\n- Call validateChanges\\(\\) in applyChanges\\(\\) to guard against duplicate\n  changes before modifying files \\(#40\\)\n- Replace 7 Object.assign inline style blocks in 4 notification/banner\n  functions with CSS classes using custom properties \\(#41\\)\n- Add sessionManager.addRecentAnalysis\\(\\) call for delete operations so\n  they appear in Quick Access panel \\(#42\\)\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git -C \"D:/worktrees/task-3-1-p2-bugfixes\" push -u origin task-3-1/p2-bugfixes)"
     ]
   }
 }
