@@ -534,6 +534,12 @@ class RefactoringEngine {
         // Verify write permission before proceeding
         await this.verifyWritePermission();
 
+        // Validate changes before proceeding
+        const validation = this.validateChanges();
+        if (!validation.valid) {
+            throw new Error(`Cannot apply changes: ${validation.issues.join(', ')}`);
+        }
+
         // Clear any previous backups
         this.backups.clear();
 
