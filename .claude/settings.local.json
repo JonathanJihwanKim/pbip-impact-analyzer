@@ -25,7 +25,16 @@
       "Bash(git -C \"D:/worktrees/task-3-1-p2-bugfixes\" log --oneline -5)",
       "Bash(git -C \"D:/worktrees/task-3-1-p2-bugfixes\" add app.js refactor.js styles.css)",
       "Bash(git -C \"D:/worktrees/task-3-1-p2-bugfixes\" commit -m \"$\\(cat <<''EOF''\nfix: wire up dead validateChanges\\(\\), move banner styles to CSS, record delete analyses in session history\n\n- Call validateChanges\\(\\) in applyChanges\\(\\) to guard against duplicate\n  changes before modifying files \\(#40\\)\n- Replace 7 Object.assign inline style blocks in 4 notification/banner\n  functions with CSS classes using custom properties \\(#41\\)\n- Add sessionManager.addRecentAnalysis\\(\\) call for delete operations so\n  they appear in Quick Access panel \\(#42\\)\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(git -C \"D:/worktrees/task-3-1-p2-bugfixes\" push -u origin task-3-1/p2-bugfixes)"
+      "Bash(git -C \"D:/worktrees/task-3-1-p2-bugfixes\" push -u origin task-3-1/p2-bugfixes)",
+      "Bash(git -C \"d:/pbip-impact-analyzer\" branch -a)",
+      "Bash(git -C \"d:/pbip-impact-analyzer\" branch -d task-3-1/p2-bugfixes)",
+      "Bash(git -C \"d:/pbip-impact-analyzer\" fetch --prune)",
+      "Bash(git -C \"d:/pbip-impact-analyzer\" status)",
+      "Bash(git -C \"d:/pbip-impact-analyzer\" diff --stat)",
+      "Bash(git -C \"D:/Contoso/Contoso\" worktree list)",
+      "Bash(git -C \"D:/Contoso/Contoso\" branch -D contosoworktree)",
+      "Bash(git -C \"D:/Contoso/Contoso\" branch -a)",
+      "Bash(git -C \"D:/Contoso/Contoso\" push origin --delete contosoworktree)"
     ]
   }
 }

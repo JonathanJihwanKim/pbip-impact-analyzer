@@ -109,6 +109,7 @@ class SearchableSelect {
             const item = document.createElement('div');
             item.className = 'searchable-select-item';
             item.textContent = opt.textContent;
+            item.title = opt.textContent;
             item.dataset.value = opt.value;
             item.dataset.index = idx;
             item.addEventListener('click', () => this._selectItem(opt));
@@ -846,6 +847,28 @@ function handleVisualSelectChange() {
     const analyzeBtn = document.getElementById('analyzeBtn');
 
     analyzeBtn.disabled = !visualSelect.value;
+
+    // Show minimap preview in sidebar when visual is selected
+    const existingPreview = document.querySelector('.sidebar-visual-preview');
+    if (existingPreview) existingPreview.remove();
+
+    if (visualSelect.value) {
+        const parts = visualSelect.value.split('/');
+        const pageId = parts[0];
+        const visualId = parts[1];
+        const visual = parsedData.visuals.find(v => v.pageId === pageId && v.visualId === visualId);
+
+        if (visual) {
+            const miniMapHtml = renderVisualMiniMap(visual);
+            if (miniMapHtml) {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'sidebar-visual-preview';
+                wrapper.innerHTML = miniMapHtml;
+                const visualSelectGroup = document.getElementById('visualSelectGroup');
+                visualSelectGroup.after(wrapper);
+            }
+        }
+    }
 }
 
 /**
@@ -2621,6 +2644,7 @@ function createQuickAccessItem(item, isFavorite) {
     const nameEl = document.createElement('span');
     nameEl.className = 'quick-item-name';
     nameEl.textContent = item.name;
+    nameEl.title = item.name;
     info.appendChild(nameEl);
 
     const meta = document.createElement('span');

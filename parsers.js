@@ -416,10 +416,24 @@ class JSONParser {
 
         // Iterate through all projection groups (Category, Y, X, Values, Columns, Rows, etc.)
         for (const [projectionName, projection] of Object.entries(queryState)) {
-            if (!projection.projections) continue;
+            if (projection.projections) {
+                for (const proj of projection.projections) {
+                    this.extractFieldFromProjection(proj, projectionName, 'queryState', fieldMap);
+                }
+            }
 
-            for (const proj of projection.projections) {
-                this.extractFieldFromProjection(proj, projectionName, 'queryState', fieldMap);
+            // Extract field parameter references (e.g., when a visual uses a field parameter table)
+            if (projection.fieldParameters) {
+                for (const fp of projection.fieldParameters) {
+                    if (fp.parameterExpr) {
+                        this.extractFieldFromProjection(
+                            { field: fp.parameterExpr },
+                            projectionName,
+                            'fieldParameter',
+                            fieldMap
+                        );
+                    }
+                }
             }
         }
     }

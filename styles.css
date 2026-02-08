@@ -409,7 +409,7 @@ header h1 {
 /* Tab Layout - Sidebar + Main Content */
 .tab-layout {
     display: grid;
-    grid-template-columns: 280px 1fr;
+    grid-template-columns: 320px 1fr;
     gap: 20px;
     min-height: 450px;
 }
@@ -457,6 +457,7 @@ header h1 {
 .tab-sidebar .select,
 .tab-sidebar .input {
     max-width: 100%;
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
 }
 
 .tab-main-content {
@@ -1027,6 +1028,15 @@ footer .sponsor-link:hover {
     grid-template-columns: 1fr;
 }
 
+/* Sidebar visual minimap preview (shown on visual selection) */
+.sidebar-visual-preview {
+    margin-bottom: 15px;
+}
+
+.sidebar-visual-preview .visual-position-info {
+    margin-top: 8px;
+}
+
 /* Operation Toggle (Rename vs Delete) */
 .operation-toggle {
     display: flex;
@@ -1066,7 +1076,7 @@ footer .sponsor-link:hover {
     border: 2px solid var(--border-color);
     border-radius: var(--border-radius);
     font-size: 1rem;
-    font-family: 'Source Serif 4', Georgia, serif;
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
     background-color: var(--surface-color);
     transition: var(--transition);
 }
@@ -1101,6 +1111,7 @@ footer .sponsor-link:hover {
     padding: 8px 12px;
     cursor: pointer;
     font-size: 0.9rem;
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
     transition: background-color 0.1s ease;
     word-break: break-word;
 }
