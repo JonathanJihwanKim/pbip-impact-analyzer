@@ -19,6 +19,14 @@
     --accent-gold: #d4a843;
     --accent-cream: #f5e6c8;
 
+    /* Notification/banner semantic colors */
+    --warning-bg: #fdf0e6;
+    --warning-text: #5c3a1e;
+    --info-bg: #e8eff8;
+    --info-bg-alt: #d4e4f4;
+    --caution-bg: #fdf6e8;
+    --caution-text: #6b5a28;
+
     /* Surfaces */
     --bg-color: #f0ebe3;
     --bg-pattern: #e8e0d4;
@@ -2618,4 +2626,114 @@ footer .sponsor-link:hover {
     color: var(--text-secondary);
     font-style: italic;
     padding: 4px 0;
+}
+
+/* ── Toast Notifications ─────────────────────────────────── */
+
+.app-notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 6px;
+    color: white;
+    font-weight: 500;
+    z-index: 10000;
+    animation: fadeIn 0.3s ease;
+}
+
+.app-notification-success {
+    background-color: var(--success-color);
+}
+
+.app-notification-error {
+    background-color: var(--danger-color);
+}
+
+.app-notification-info {
+    background-color: var(--primary-color);
+}
+
+/* ── Banner Notifications ────────────────────────────────── */
+
+.notification-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+}
+
+.notification-banner--warning {
+    background-color: var(--warning-bg);
+    border-bottom: 3px solid var(--accent-terracotta);
+    color: var(--warning-text);
+    z-index: 9997;
+}
+
+.notification-banner--info {
+    background-color: var(--info-bg);
+    border-bottom: 3px solid var(--primary-color);
+    color: var(--primary-color);
+    z-index: 9998;
+}
+
+.notification-banner--caution {
+    background-color: var(--caution-bg);
+    border-bottom: 3px solid var(--warning-color);
+    color: var(--caution-text);
+    z-index: 9999;
+    font-size: 14px;
+    padding: 12px 20px;
+}
+
+.notification-banner__icon {
+    margin-right: 10px;
+}
+
+.notification-banner__icon .material-symbols-outlined {
+    font-size: 16px;
+    vertical-align: middle;
+}
+
+.notification-banner__close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    margin-left: 20px;
+    color: inherit;
+}
+
+.notification-banner--warning .notification-banner__close {
+    font-size: 18px;
+}
+
+.notification-banner--info .notification-banner__close {
+    font-size: 18px;
+}
+
+.notification-banner--caution .notification-banner__close {
+    font-size: 20px;
+}
+
+.notification-banner--info code {
+    background: var(--info-bg-alt);
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin: 0 2px;
+}
+
+.notification-banner--caution code {
+    background: var(--accent-cream);
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin: 0 4px;
+}
+
+.notification-banner--caution .material-symbols-outlined {
+    vertical-align: middle;
 }

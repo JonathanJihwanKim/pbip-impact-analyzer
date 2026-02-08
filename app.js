@@ -915,6 +915,12 @@ function handleAnalyzeImpact() {
         currentImpactResult = { nodeId, result, operation: 'delete' };
         displayDeleteResults(result);
 
+        // Record in session history
+        if (sessionManager) {
+            sessionManager.addRecentAnalysis(nodeId, result.targetName, result.targetType);
+            refreshQuickAccessPanel();
+        }
+
         // Still update lineage with the rename view for context
         const renameResult = dependencyAnalyzer.analyzeImpactEnhanced(nodeId, 'rename');
         graphVisualizer.renderMiniLineage(nodeId, renameResult);
@@ -1979,21 +1985,6 @@ function showNotification(message, type = 'info') {
     notification.className = `app-notification app-notification-${type}`;
     notification.textContent = message;
 
-    // Style the notification
-    Object.assign(notification.style, {
-        position: 'fixed',
-        bottom: '20px',
-        right: '20px',
-        padding: '12px 20px',
-        borderRadius: '6px',
-        color: 'white',
-        fontWeight: '500',
-        zIndex: '10000',
-        animation: 'fadeIn 0.3s ease',
-        backgroundColor: type === 'success' ? '#4a7c59' :
-                       type === 'error' ? '#c1440e' : '#1a3a5c'
-    });
-
     document.body.appendChild(notification);
 
     // Auto-remove after 3 seconds (longer for errors)
@@ -2367,26 +2358,11 @@ function displayLargeModelWarning(stats) {
 
     // Create a dismissible performance warning
     const banner = document.createElement('div');
-    banner.className = 'large-model-warning-banner';
-    Object.assign(banner.style, {
-        position: 'fixed',
-        top: '0',
-        left: '0',
-        right: '0',
-        padding: '10px 20px',
-        backgroundColor: '#fdf0e6',
-        borderBottom: '3px solid #cc6b49',
-        color: '#5c3a1e',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        zIndex: '9997',
-        fontSize: '13px'
-    });
+    banner.className = 'large-model-warning-banner notification-banner notification-banner--warning';
 
     const warningIcon = document.createElement('span');
-    warningIcon.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">bolt</span> ';
-    warningIcon.style.marginRight = '10px';
+    warningIcon.className = 'notification-banner__icon';
+    warningIcon.innerHTML = '<span class="material-symbols-outlined">bolt</span> ';
 
     const message = document.createElement('span');
     const details = [];
@@ -2396,15 +2372,8 @@ function displayLargeModelWarning(stats) {
     message.innerHTML = `<strong>Large Model:</strong> ${details.join(', ')}. Impact analysis may be slow. Consider analyzing specific objects rather than full graph traversals.`;
 
     const closeBtn = document.createElement('button');
+    closeBtn.className = 'notification-banner__close';
     closeBtn.innerHTML = '<span class="material-symbols-outlined">close</span>';
-    Object.assign(closeBtn.style, {
-        background: 'none',
-        border: 'none',
-        fontSize: '18px',
-        cursor: 'pointer',
-        color: '#5c3a1e',
-        marginLeft: '20px'
-    });
     closeBtn.onclick = () => banner.remove();
 
     banner.appendChild(warningIcon);
@@ -2433,47 +2402,25 @@ function displayOrphanedReferencesWarning(stats) {
 
     // Create a dismissible info banner (less severe than circular deps)
     const banner = document.createElement('div');
-    banner.className = 'orphaned-warning-banner';
-    Object.assign(banner.style, {
-        position: 'fixed',
-        top: '0',
-        left: '0',
-        right: '0',
-        padding: '10px 20px',
-        backgroundColor: '#e8eff8',
-        borderBottom: '3px solid #1a3a5c',
-        color: '#1a3a5c',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        zIndex: '9998',
-        fontSize: '13px'
-    });
+    banner.className = 'orphaned-warning-banner notification-banner notification-banner--info';
 
     const warningIcon = document.createElement('span');
-    warningIcon.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">info</span> ';
-    warningIcon.style.marginRight = '10px';
+    warningIcon.className = 'notification-banner__icon';
+    warningIcon.innerHTML = '<span class="material-symbols-outlined">info</span> ';
 
     const message = document.createElement('span');
     const measureList = Array.from(measuresWithOrphans).slice(0, 3);
     const moreCount = measuresWithOrphans.size - 3;
 
     message.innerHTML = `<strong>Broken References:</strong> ${orphans.length} reference(s) to non-existent objects in measures: `;
-    message.innerHTML += measureList.map(m => `<code style="background:#d4e4f4;padding:2px 6px;border-radius:3px;margin:0 2px;">${escapeHtml(m)}</code>`).join(', ');
+    message.innerHTML += measureList.map(m => `<code>${escapeHtml(m)}</code>`).join(', ');
     if (moreCount > 0) {
         message.innerHTML += ` and ${moreCount} more`;
     }
 
     const closeBtn = document.createElement('button');
+    closeBtn.className = 'notification-banner__close';
     closeBtn.innerHTML = '<span class="material-symbols-outlined">close</span>';
-    Object.assign(closeBtn.style, {
-        background: 'none',
-        border: 'none',
-        fontSize: '18px',
-        cursor: 'pointer',
-        color: '#1a3a5c',
-        marginLeft: '20px'
-    });
     closeBtn.onclick = () => banner.remove();
 
     banner.appendChild(warningIcon);
@@ -2498,22 +2445,7 @@ function displayCircularDependencyWarning(circularDeps) {
 
     // Create a dismissible warning banner
     const banner = document.createElement('div');
-    banner.className = 'circular-warning-banner';
-    Object.assign(banner.style, {
-        position: 'fixed',
-        top: '0',
-        left: '0',
-        right: '0',
-        padding: '12px 20px',
-        backgroundColor: '#fdf6e8',
-        borderBottom: '3px solid #c89632',
-        color: '#6b5a28',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        zIndex: '9999',
-        fontSize: '14px'
-    });
+    banner.className = 'circular-warning-banner notification-banner notification-banner--caution';
 
     // Format the circular dependencies for display
     const chains = circularDeps.map(chain => {
@@ -2523,35 +2455,28 @@ function displayCircularDependencyWarning(circularDeps) {
                 return escapeHtml(nodeId.replace('Measure.', ''));
             }
             return escapeHtml(nodeId);
-        }).join(' <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle">arrow_forward</span> ');
+        }).join(' <span class="material-symbols-outlined">arrow_forward</span> ');
     });
 
     const warningIcon = document.createElement('span');
-    warningIcon.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">warning</span> ';
-    warningIcon.style.marginRight = '10px';
+    warningIcon.className = 'notification-banner__icon';
+    warningIcon.innerHTML = '<span class="material-symbols-outlined">warning</span> ';
 
     const message = document.createElement('span');
     message.innerHTML = `<strong>Circular Dependencies Detected:</strong> ${circularDeps.length} cycle(s) found. `;
 
     if (circularDeps.length <= 3) {
         // Show all chains if there are 3 or fewer
-        message.innerHTML += chains.map(c => `<code style="background:#f5e6c8;padding:2px 6px;border-radius:3px;margin:0 4px;">${c}</code>`).join(' ');
+        message.innerHTML += chains.map(c => `<code>${c}</code>`).join(' ');
     } else {
         // Show first 2 and count for the rest
-        message.innerHTML += chains.slice(0, 2).map(c => `<code style="background:#f5e6c8;padding:2px 6px;border-radius:3px;margin:0 4px;">${c}</code>`).join(' ');
+        message.innerHTML += chains.slice(0, 2).map(c => `<code>${c}</code>`).join(' ');
         message.innerHTML += ` and ${circularDeps.length - 2} more...`;
     }
 
     const closeBtn = document.createElement('button');
+    closeBtn.className = 'notification-banner__close';
     closeBtn.innerHTML = '<span class="material-symbols-outlined">close</span>';
-    Object.assign(closeBtn.style, {
-        background: 'none',
-        border: 'none',
-        fontSize: '20px',
-        cursor: 'pointer',
-        color: '#6b5a28',
-        marginLeft: '20px'
-    });
     closeBtn.onclick = () => banner.remove();
 
     banner.appendChild(warningIcon);
