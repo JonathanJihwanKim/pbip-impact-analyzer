@@ -130,8 +130,8 @@ class TMDLParser {
                 calculationItems = TMDLParser.parseCalculationItems(tmdlContent);
             }
 
-            // Detect field parameter table
-            const isFieldParameter = /^\s*isParameterTable\b/m.test(tmdlContent);
+            // Detect field parameter table via ParameterMetadata extended property (kind: 2)
+            const isFieldParameter = /extendedProperty\s+ParameterMetadata\s*=[\s\S]*?"kind"\s*:\s*2/.test(tmdlContent);
             let fieldParameterRefs = [];
             if (isFieldParameter) {
                 fieldParameterRefs = DAXParser.extractFieldParameterRefs(tmdlContent);
@@ -390,7 +390,7 @@ class JSONParser {
 
         try {
             // Scan queryState projections (existing)
-            this.extractFromQueryState(visualData.query?.queryState, fieldMap);
+            this.extractFromQueryState(visualData.visual?.query?.queryState || visualData.query?.queryState, fieldMap);
 
             // Scan sortDefinition (NEW)
             this.extractFromSortDefinition(visualData.visual?.query?.sortDefinition, fieldMap);
@@ -782,8 +782,8 @@ class DAXParser {
         const refs = [];
 
         try {
-            // Find partition expression block
-            const partitionMatch = tmdlContent.match(/partition\s+.+?=\s*calculated\s*\n\s*expression\s*=\s*\n([\s\S]*?)(?=\n\s{0,4}\w|\s*$)/);
+            // Find partition source/expression block (PBIP uses "source =", older formats use "expression =")
+            const partitionMatch = tmdlContent.match(/partition\s+.+?=\s*calculated[\s\S]*?(?:source|expression)\s*=\s*\n([\s\S]*?)(?=\n\s{0,4}\w|\s*$)/);
             if (!partitionMatch) return refs;
 
             const exprBlock = partitionMatch[1];

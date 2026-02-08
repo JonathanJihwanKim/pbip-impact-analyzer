@@ -253,7 +253,7 @@ let refactorObjectSearch = null;
 // Filter state (persists across tab switches)
 let filterState = {
     searchText: '',
-    typeFilters: { measure: true, column: true, table: true, visual: true },
+    typeFilters: { measure: true, column: true, table: true, visual: true, fieldParameter: true },
     maxDepth: 0 // 0 = show all
 };
 
@@ -554,6 +554,13 @@ async function loadPBIPFiles() {
     // Update UI
     updateModelStats();
     populateObjectSelects();
+
+    // Default to "Measure" — the most common analysis starting point
+    const typeSelect = document.getElementById('objectTypeSelect');
+    if (typeSelect) {
+        typeSelect.value = 'measure';
+        handleObjectTypeChange();
+    }
 
     // Initialize graph with placeholder (will update after impact analysis)
     graphVisualizer.clear();
@@ -1020,6 +1027,13 @@ function displayImpactResults(result) {
     document.querySelector('.upstream-column h3').textContent = 'Upstream Dependencies';
     document.querySelector('.downstream-column h3').textContent = 'Downstream Dependents';
 
+    // Restore field parameters section visibility (hidden in delete mode)
+    const fpSection = document.querySelector('[data-section="upstream-field-params"]');
+    if (fpSection) {
+        const fpSectionEl = fpSection.closest('.dependency-section');
+        if (fpSectionEl) fpSectionEl.style.display = '';
+    }
+
     // Restore section toggle labels
     const tablesToggle = document.querySelector('[data-section="upstream-tables"]');
     const columnsToggle = document.querySelector('[data-section="upstream-columns"]');
@@ -1052,10 +1066,12 @@ function displayImpactResults(result) {
         const measureCount = upstream.measures ? upstream.measures.length : 0;
         const columnCount = upstream.columns ? upstream.columns.length : 0;
         const tableCount = upstream.tables ? upstream.tables.length : 0;
+        const fieldParamCount = upstream.fieldParameters ? upstream.fieldParameters.length : 0;
         const summaryParts = [];
         if (measureCount > 0) summaryParts.push(`${measureCount} measure${measureCount !== 1 ? 's' : ''}`);
         if (columnCount > 0) summaryParts.push(`${columnCount} column${columnCount !== 1 ? 's' : ''}`);
         if (tableCount > 0) summaryParts.push(`from ${tableCount} table${tableCount !== 1 ? 's' : ''}`);
+        if (fieldParamCount > 0) summaryParts.push(`${fieldParamCount} field parameter${fieldParamCount !== 1 ? 's' : ''}`);
 
         if (summaryParts.length > 0) {
             const summaryDiv = document.createElement('div');
@@ -1201,6 +1217,13 @@ function displayDeleteResults(result) {
             const item = createDeleteBreakItem(v, 'visual', result.targetName);
             directVisualsList.appendChild(item);
         });
+    }
+
+    // Hide field parameters section in delete mode (not applicable)
+    const fpSection = document.querySelector('[data-section="upstream-field-params"]');
+    if (fpSection) {
+        const fpSectionEl = fpSection.closest('.dependency-section');
+        if (fpSectionEl) fpSectionEl.style.display = 'none';
     }
 
     // Downstream column becomes "Cascade Breaks"
@@ -1463,12 +1486,19 @@ function displayUpstreamDependencies(upstream, targetName, targetType) {
         `<span class="toggle-icon material-symbols-outlined">expand_more</span> Columns (<span id="upstreamColumnsCount">0</span>)`;
     document.querySelector('[data-section="upstream-measures"]').innerHTML =
         `<span class="toggle-icon material-symbols-outlined">expand_more</span> Measures (<span id="upstreamMeasuresCount">0</span>)`;
+    const fpToggle = document.querySelector('[data-section="upstream-field-params"]');
+    if (fpToggle) {
+        fpToggle.innerHTML =
+            `<span class="toggle-icon material-symbols-outlined">expand_more</span> Field Parameters (<span id="upstreamFieldParamsCount">0</span>)`;
+    }
 
     // Update counts
     document.getElementById('upstreamCount').textContent = upstream.totalCount || 0;
     document.getElementById('upstreamTablesCount').textContent = upstream.tables.length;
     document.getElementById('upstreamColumnsCount').textContent = upstream.columns.length;
     document.getElementById('upstreamMeasuresCount').textContent = upstream.measures.length;
+    const fpCountEl = document.getElementById('upstreamFieldParamsCount');
+    if (fpCountEl) fpCountEl.textContent = (upstream.fieldParameters || []).length;
 
     // Display tables
     const tablesContainer = document.getElementById('upstreamTablesList');
@@ -1506,6 +1536,21 @@ function displayUpstreamDependencies(upstream, targetName, targetType) {
             const item = createDependencyItem(measure, 'measure', true);
             measuresContainer.appendChild(item);
         });
+    }
+
+    // Display field parameters
+    const fieldParamsContainer = document.getElementById('upstream-field-paramsList');
+    if (fieldParamsContainer) {
+        fieldParamsContainer.innerHTML = '';
+        const fieldParams = upstream.fieldParameters || [];
+        if (fieldParams.length === 0) {
+            fieldParamsContainer.innerHTML = '<div class="empty-results">No field parameter dependencies</div>';
+        } else {
+            fieldParams.forEach(fp => {
+                const item = createDependencyItem(fp, 'fieldParameter');
+                fieldParamsContainer.appendChild(item);
+            });
+        }
     }
 }
 
@@ -1635,7 +1680,21 @@ function createDependencyItem(item, type, showDAX = false) {
     if (type === 'fieldParameter') {
         const details = document.createElement('div');
         details.className = 'dependency-item-details';
-        details.textContent = `Field Parameter Table`;
+        const refs = item.fieldParameterRefs || [];
+        if (refs.length > 0) {
+            const measureRefs = refs.filter(r => r.type === 'measure');
+            const columnRefs = refs.filter(r => r.type === 'column');
+            const parts = [];
+            if (measureRefs.length > 0) {
+                parts.push(`${measureRefs.length} measure${measureRefs.length !== 1 ? 's' : ''}: ${measureRefs.map(r => r.property).join(', ')}`);
+            }
+            if (columnRefs.length > 0) {
+                parts.push(`${columnRefs.length} column${columnRefs.length !== 1 ? 's' : ''}: ${columnRefs.map(r => r.property).join(', ')}`);
+            }
+            details.textContent = `Field Parameter \u2014 ${parts.join('; ')}`;
+        } else {
+            details.textContent = 'Field Parameter Table';
+        }
         div.appendChild(details);
     }
 
@@ -1954,6 +2013,13 @@ function exportImpactAsCSV(result) {
                 rows.push([objectName, objectType, 'Upstream', item.name, 'Measure', item.depth || 1]);
             });
         }
+
+        // Field Parameters
+        if (result.upstream.fieldParameters) {
+            result.upstream.fieldParameters.forEach(item => {
+                rows.push([objectName, objectType, 'Upstream', item.name, 'Field Parameter', item.depth || 1]);
+            });
+        }
     }
 
     // Add downstream dependencies
@@ -1962,6 +2028,13 @@ function exportImpactAsCSV(result) {
         if (result.downstream.measures) {
             result.downstream.measures.forEach(item => {
                 rows.push([objectName, objectType, 'Downstream', item.name, 'Measure', item.depth || 1]);
+            });
+        }
+
+        // Field Parameters
+        if (result.downstream.fieldParameters) {
+            result.downstream.fieldParameters.forEach(item => {
+                rows.push([objectName, objectType, 'Downstream', item.name, 'Field Parameter', item.depth || 1]);
             });
         }
 
@@ -2791,7 +2864,10 @@ function applyResultsFilter() {
         { list: 'upstreamTablesList', type: 'table', countId: 'upstreamTablesCount', toggle: 'upstream-tables' },
         { list: 'upstreamColumnsList', type: 'column', countId: 'upstreamColumnsCount', toggle: 'upstream-columns' },
         { list: 'upstreamMeasuresList', type: 'measure', countId: 'upstreamMeasuresCount', toggle: 'upstream-measures' },
+        { list: 'upstream-field-paramsList', type: 'fieldParameter', countId: 'upstreamFieldParamsCount', toggle: 'upstream-field-params' },
         { list: 'downstreamMeasuresList', type: 'measure', countId: 'downstreamMeasuresCount', toggle: 'downstream-measures' },
+        { list: 'downstreamCalcItemsList', type: 'calculationItem', countId: 'downstreamCalcItemsCount', toggle: 'downstream-calc-items' },
+        { list: 'downstreamFieldParamsList', type: 'fieldParameter', countId: 'downstreamFieldParamsCount', toggle: 'downstream-field-params' },
         { list: 'downstreamVisualsList', type: 'visual', countId: 'downstreamVisualsCount', toggle: 'downstream-visuals' }
     ];
 
@@ -2806,10 +2882,6 @@ function applyResultsFilter() {
         const typeVisible = filterState.typeFilters[section.type] !== false;
         let visibleCount = 0;
         let totalCount = items.length;
-
-        // Also count empty-results divs (they shouldn't count)
-        const emptyResults = listEl.querySelectorAll('.empty-results');
-        totalCount -= emptyResults.length;
 
         items.forEach(item => {
             let show = typeVisible;

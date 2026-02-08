@@ -308,19 +308,20 @@ class DependencyAnalyzer {
                         });
                     }
                 } else if (field.type === 'column') {
-                    const colNodeId = `${field.table}.${field.column}`;
+                    // If this field came from a fieldParameter reference in visual.json,
+                    // link to the FieldParam node instead of the regular column
+                    const paramNodeId = `FieldParam.${field.table}`;
+                    const isFieldParamRef = field.location === 'fieldParameter' ||
+                        field.locations?.some(loc => loc.location === 'fieldParameter');
 
-                    if (this.dependencyGraph.nodes[colNodeId]) {
-                        // Add to dependencies
+                    if (isFieldParamRef && this.dependencyGraph.nodes[paramNodeId]) {
                         visualNode.dependencies.push({
-                            type: 'column',
-                            ref: colNodeId,
-                            table: field.table,
-                            column: field.column
+                            type: 'fieldParameter',
+                            ref: paramNodeId,
+                            name: field.table
                         });
 
-                        // Add to usedBy
-                        this.dependencyGraph.nodes[colNodeId].usedBy.push({
+                        this.dependencyGraph.nodes[paramNodeId].usedBy.push({
                             type: 'visual',
                             ref: visualNodeId,
                             pageId: visual.pageId,
@@ -328,16 +329,37 @@ class DependencyAnalyzer {
                             visualType: visual.visualType
                         });
 
-                        // Add edge
                         this.dependencyGraph.edges.push({
                             from: visualNodeId,
-                            to: colNodeId,
-                            type: 'visual-to-column'
+                            to: paramNodeId,
+                            type: 'visual-to-fieldParameter'
                         });
                     } else {
-                        // Check if this column belongs to a field parameter table
-                        const paramNodeId = `FieldParam.${field.table}`;
-                        if (this.dependencyGraph.nodes[paramNodeId]) {
+                        const colNodeId = `${field.table}.${field.column}`;
+
+                        if (this.dependencyGraph.nodes[colNodeId]) {
+                            visualNode.dependencies.push({
+                                type: 'column',
+                                ref: colNodeId,
+                                table: field.table,
+                                column: field.column
+                            });
+
+                            this.dependencyGraph.nodes[colNodeId].usedBy.push({
+                                type: 'visual',
+                                ref: visualNodeId,
+                                pageId: visual.pageId,
+                                visualId: visual.visualId,
+                                visualType: visual.visualType
+                            });
+
+                            this.dependencyGraph.edges.push({
+                                from: visualNodeId,
+                                to: colNodeId,
+                                type: 'visual-to-column'
+                            });
+                        } else if (this.dependencyGraph.nodes[paramNodeId]) {
+                            // Fallback: column not found, check field parameter table
                             visualNode.dependencies.push({
                                 type: 'fieldParameter',
                                 ref: paramNodeId,

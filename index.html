@@ -222,6 +222,7 @@
                                         <label class="filter-chip"><input type="checkbox" class="filter-chip-input" data-filter="column" checked> Columns</label>
                                         <label class="filter-chip"><input type="checkbox" class="filter-chip-input" data-filter="table" checked> Tables</label>
                                         <label class="filter-chip"><input type="checkbox" class="filter-chip-input" data-filter="visual" checked> Visuals</label>
+                                        <label class="filter-chip"><input type="checkbox" class="filter-chip-input" data-filter="fieldParameter" checked> Field Parameters</label>
                                     </div>
                                     <div class="depth-filter">
                                         <span class="depth-label">Max depth:</span>
@@ -261,6 +262,13 @@
                                             <span class="toggle-icon material-symbols-outlined">expand_more</span> Measures (<span id="upstreamMeasuresCount">0</span>)
                                         </button>
                                         <div id="upstreamMeasuresList" class="dependency-list"></div>
+                                    </div>
+
+                                    <div class="dependency-section">
+                                        <button class="section-toggle" data-section="upstream-field-params">
+                                            <span class="toggle-icon material-symbols-outlined">expand_more</span> Field Parameters (<span id="upstreamFieldParamsCount">0</span>)
+                                        </button>
+                                        <div id="upstream-field-paramsList" class="dependency-list"></div>
                                     </div>
                                 </div>
 
