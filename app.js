@@ -482,13 +482,19 @@ async function loadPBIPFiles() {
     // Parse tables
     showLoading(true, `Parsing ${semanticModelFiles.tables.length} tables...`);
     parsedData.tables = [];
+    const tableParseErrors = [];
     for (let i = 0; i < semanticModelFiles.tables.length; i++) {
         const tableFile = semanticModelFiles.tables[i];
         if (i % 5 === 0) { // Update every 5 tables to avoid too many DOM updates
             showLoading(true, `Parsing tables (${i + 1}/${semanticModelFiles.tables.length})...`);
         }
-        const tableData = TMDLParser.parseTableTMDL(tableFile.content, tableFile.fileName);
-        parsedData.tables.push(tableData);
+        try {
+            const tableData = TMDLParser.parseTableTMDL(tableFile.content, tableFile.fileName);
+            parsedData.tables.push(tableData);
+        } catch (error) {
+            console.warn(`Failed to parse table ${tableFile.fileName}:`, error);
+            tableParseErrors.push(tableFile.fileName);
+        }
     }
 
     // Parse relationships
@@ -564,6 +570,12 @@ async function loadPBIPFiles() {
     document.getElementById('tabNav').style.display = 'flex';
 
     showLoading(false);
+
+    // Warn user about any table files that failed to parse
+    if (tableParseErrors.length > 0) {
+        showError(`Warning: ${tableParseErrors.length} table(s) could not be parsed and were skipped:\n\n${tableParseErrors.join('\n')}\n\nThe remaining tables were loaded successfully.`);
+    }
+
     // Success feedback is provided by the populated stats and project info
 }
 
@@ -933,6 +945,7 @@ function displayImpactResults(result) {
     // Check for error
     if (result.error) {
         console.error('Impact analysis error:', result.error);
+        showError(`Impact analysis failed: ${result.error}`);
         return;
     }
 
