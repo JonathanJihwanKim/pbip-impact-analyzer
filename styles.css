@@ -2639,6 +2639,99 @@ footer .sponsor-link:hover {
     padding: 4px 0;
 }
 
+/* ── Selection Process Guide ─────────────────────────────── */
+
+.selection-guide {
+    padding: 10px 14px;
+    background-color: var(--info-bg);
+    border: 1px solid var(--primary-light);
+    border-radius: var(--border-radius);
+    font-size: 0.8rem;
+}
+
+.selection-guide-steps {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.guide-step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: var(--border-radius);
+    transition: var(--transition);
+    color: var(--text-secondary);
+}
+
+.guide-step-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background-color: var(--border-color);
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.guide-step-text {
+    white-space: nowrap;
+}
+
+.guide-step-text em {
+    font-style: italic;
+    opacity: 0.8;
+}
+
+.guide-step-arrow {
+    font-size: 16px;
+    color: var(--border-color);
+    flex-shrink: 0;
+}
+
+/* Active step */
+.guide-step.active {
+    background-color: rgba(0, 120, 212, 0.08);
+}
+
+.guide-step.active .guide-step-number {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.guide-step.active .guide-step-text {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+/* Completed step */
+.guide-step.completed .guide-step-number {
+    background-color: var(--success-color);
+    color: white;
+}
+
+.guide-step.completed .guide-step-text {
+    color: var(--success-color);
+}
+
+@media (max-width: 768px) {
+    .selection-guide-steps {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+
+    .guide-step-arrow {
+        display: none;
+    }
+}
+
 /* ── Toast Notifications ─────────────────────────────────── */
 
 .app-notification {

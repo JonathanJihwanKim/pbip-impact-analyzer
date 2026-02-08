@@ -373,6 +373,7 @@ function setupEventListeners() {
  */
 async function handleFolderSelection() {
     try {
+        updateSelectionGuide(1);
         showLoading(true, 'Analyzing folder structure...');
 
         // Step 1: Always ask user to select PROJECT folder first
@@ -382,6 +383,7 @@ async function handleFolderSelection() {
         });
 
         if (!folderHandle) {
+            updateSelectionGuide(0);
             showLoading(false);
             return; // User cancelled
         }
@@ -403,6 +405,7 @@ async function handleFolderSelection() {
                 `You selected: ${folderHandle.name}\n` +
                 'Please select the folder one level up and try again.'
             );
+            updateSelectionGuide(0);
             showLoading(false);
             return;
         }
@@ -418,11 +421,13 @@ async function handleFolderSelection() {
                 `You selected: ${folderHandle.name}\n` +
                 'Please select the folder one level up and try again.'
             );
+            updateSelectionGuide(0);
             showLoading(false);
             return;
         }
 
         // Step 2: Show SemanticModel picker
+        updateSelectionGuide(2);
         if (analysis.semanticModels.length === 0) {
             throw new Error(
                 'No .SemanticModel folders found in the selected folder.\n\n' +
@@ -441,9 +446,11 @@ async function handleFolderSelection() {
         }
 
         // Step 3: Discover and show related Reports
+        updateSelectionGuide(3);
         await handleReportDiscovery();
 
     } catch (error) {
+        updateSelectionGuide(0);
         if (error.name !== 'AbortError' && error.message !== 'User cancelled') {
             console.error('Error selecting folder:', error);
             showError(error.message);
@@ -551,8 +558,9 @@ async function loadPBIPFiles() {
     // Initialize graph with placeholder (will update after impact analysis)
     graphVisualizer.clear();
 
-    // Update selection summary
+    // Update selection summary and hide the guide
     updateSelectionSummary();
+    updateSelectionGuide(-1);
 
     // Save folder metadata to session
     if (sessionManager) {
@@ -2162,6 +2170,7 @@ async function showSemanticModelPicker(semanticModels) {
             },
             onCancel: () => {
                 document.body.removeChild(modal);
+                updateSelectionGuide(0);
                 showLoading(false);
                 reject(new Error('User cancelled'));
             }
@@ -2230,6 +2239,7 @@ async function showReportPicker(matchingReports) {
             },
             onCancel: () => {
                 document.body.removeChild(modal);
+                updateSelectionGuide(0);
                 showLoading(false);
             }
         });
@@ -2239,6 +2249,32 @@ async function showReportPicker(matchingReports) {
 }
 
 
+
+/**
+ * Update the selection guide to highlight the current step
+ * @param {number} step - Active step (1-3), 0 to reset, -1 to hide
+ */
+function updateSelectionGuide(step) {
+    const guide = document.getElementById('selectionGuide');
+    if (!guide) return;
+
+    const steps = guide.querySelectorAll('.guide-step');
+    steps.forEach(el => {
+        const stepNum = parseInt(el.dataset.step, 10);
+        el.classList.remove('active', 'completed');
+        if (step > 0 && stepNum < step) {
+            el.classList.add('completed');
+        } else if (stepNum === step) {
+            el.classList.add('active');
+        }
+    });
+
+    if (step === -1) {
+        guide.classList.add('hidden');
+    } else {
+        guide.classList.remove('hidden');
+    }
+}
 
 /**
  * Show loading indicator
