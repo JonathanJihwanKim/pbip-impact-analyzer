@@ -36,7 +36,8 @@
       "Bash(git -C \"D:/Contoso/Contoso\" branch -a)",
       "Bash(git -C \"D:/Contoso/Contoso\" push origin --delete contosoworktree)",
       "WebFetch(domain:www.sqlbi.com)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(git mv:*)"
     ]
   }
 }

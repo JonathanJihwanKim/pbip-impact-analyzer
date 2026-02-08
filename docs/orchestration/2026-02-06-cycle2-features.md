@@ -49,19 +49,19 @@ Add the ability to rename a **table** and automatically cascade the rename to al
 
 **Implementation Details:**
 
-1. **Add "Table" to the refactor type selector** (`index.html` + `app.js`):
+1. **Add "Table" to the refactor type selector** (`index.html` + `src/app.js`):
    - Add `<option value="table">Table</option>` to `#refactorTypeSelect`
    - In `populateRefactorObjectSelect()`, when type is `table`, populate with table names from `parsedData.tables`
    - When a table is selected, show the new name input as usual
 
-2. **Add `previewTableRename(oldTableName, newTableName)` to `RefactoringEngine`** (`refactor.js`):
+2. **Add `previewTableRename(oldTableName, newTableName)` to `RefactoringEngine`** (`src/refactor.js`):
    - **Table definition file rename**: The TMDL file itself is named `{TableName}.tmdl`. Generate a change to rename the file AND update the `table 'OldName'` declaration inside it.
    - **Column reference updates in DAX**: For every measure that references `OldTable[Column]` or `'Old Table'[Column]`, replace with `NewTable[Column]` or `'New Table'[Column]`. Use the existing `replaceColumnInDAX()` pattern but replace the table name portion only.
    - **Visual JSON updates**: In visual.json files, the `SourceRef.Entity` field contains the table name. Generate changes for every visual that references any column from this table.
    - **Relationship updates**: In `relationships.tmdl`, the `fromColumn: TableName.Column` and `toColumn: TableName.Column` lines contain the table name.
    - **Table-only DAX references**: Functions like `COUNTROWS(OldTable)`, `ALL(OldTable)`, etc. need the table name replaced.
 
-3. **DAX table name replacement helper** (`refactor.js`):
+3. **DAX table name replacement helper** (`src/refactor.js`):
    - Add `replaceTableNameInDAX(dax, oldTableName, newTableName)` that handles:
      - `OldTable[Column]` → `NewTable[Column]` (unquoted)
      - `'Old Table'[Column]` → `'New Table'[Column]` (quoted)
@@ -70,7 +70,7 @@ Add the ability to rename a **table** and automatically cascade the rename to al
    - Must be case-insensitive (DAX is case-insensitive)
    - Must handle table names with spaces (auto-quote if new name has spaces)
 
-4. **File rename support** (`refactor.js` + `fileAccess.js`):
+4. **File rename support** (`src/refactor.js` + `src/fileAccess.js`):
    - The File System Access API doesn't support direct file rename. Implement as:
      1. Read old file content
      2. Create new file with new name via `getDirectoryHandle().getFileHandle(newName, { create: true })`
@@ -79,7 +79,7 @@ Add the ability to rename a **table** and automatically cascade the rename to al
    - Add `renameFile(parentDirHandle, oldName, newName)` to `FileAccessManager`
    - This is the trickiest part — test carefully and ensure backup/rollback covers file renames
 
-5. **Update `applyChanges()` flow** (`refactor.js`):
+5. **Update `applyChanges()` flow** (`src/refactor.js`):
    - Existing flow handles content replacement. Add a new change type `file-rename` that triggers the file rename logic.
    - Backup must store the old filename so rollback can undo the rename.
 
@@ -93,11 +93,11 @@ Add the ability to rename a **table** and automatically cascade the rename to al
 - [ ] Existing measure and column rename still works unchanged
 
 **Files Likely Affected:**
-- `refactor.js` - New `previewTableRename()`, `replaceTableNameInDAX()`, file rename change type
-- `fileAccess.js` - New `renameFile()` helper
-- `app.js` - Updated `populateRefactorObjectSelect()`, table option handling
+- `src/refactor.js` - New `previewTableRename()`, `replaceTableNameInDAX()`, file rename change type
+- `src/fileAccess.js` - New `renameFile()` helper
+- `src/app.js` - Updated `populateRefactorObjectSelect()`, table option handling
 - `index.html` - Add table option to `#refactorTypeSelect`
-- `styles.css` - Possibly new styling for file-rename change items in preview
+- `src/styles.css` - Possibly new styling for file-rename change items in preview
 
 ---
 
@@ -118,7 +118,7 @@ Add a "Delete Analysis" mode to the Impact Analysis tab. When a user selects a m
 
 **Implementation Details:**
 
-1. **Add operation selector to Impact Analysis sidebar** (`index.html` + `app.js`):
+1. **Add operation selector to Impact Analysis sidebar** (`index.html` + `src/app.js`):
    - Add a toggle or radio group below the object selector:
      ```
      Operation: [Rename Impact] [Delete Impact]
@@ -126,7 +126,7 @@ Add a "Delete Analysis" mode to the Impact Analysis tab. When a user selects a m
    - Both operations use the same object type/object selectors.
    - The Analyze button label could update: "Analyze Rename Impact" vs "Analyze Delete Impact"
 
-2. **Add `analyzeDelete(nodeId)` to `DependencyAnalyzer`** (`analyzer.js`):
+2. **Add `analyzeDelete(nodeId)` to `DependencyAnalyzer`** (`src/analyzer.js`):
    - Reuse `findAllDownstream(nodeId)` to get the full impact chain.
    - For each downstream node, classify the breakage severity:
      - **Direct break** (depth 1): This measure's DAX directly references the deleted object. It will error.
@@ -149,14 +149,14 @@ Add a "Delete Analysis" mode to the Impact Analysis tab. When a user selects a m
      - `caution`: 1-5 downstream dependents
      - `dangerous`: 6+ downstream dependents OR any relationship breaks
 
-3. **Display delete analysis results** (`app.js`):
+3. **Display delete analysis results** (`src/app.js`):
    - Reuse the existing `impactResults` container but with different styling.
    - Show a prominent risk badge: green "Safe to Delete", yellow "Caution", red "Dangerous".
    - For `dangerous`, show a summary like: "Deleting [Measure X] will break 12 measures, 8 visuals, and 2 relationships."
    - List direct breaks first (these are the immediate failures), then cascade breaks.
    - For each broken measure, show its DAX with the broken reference highlighted (wrap `[DeletedMeasure]` in a `<span class="broken-ref">` with red styling).
 
-4. **Update CSV export** (`app.js`):
+4. **Update CSV export** (`src/app.js`):
    - When exporting delete analysis, include a "Break Type" column: "Direct", "Cascade", "Relationship".
 
 **Acceptance Criteria:**
@@ -170,10 +170,10 @@ Add a "Delete Analysis" mode to the Impact Analysis tab. When a user selects a m
 - [ ] Existing rename impact analysis works unchanged
 
 **Files Likely Affected:**
-- `analyzer.js` - New `analyzeDelete()` method with risk scoring
-- `app.js` - Operation toggle UI, new `displayDeleteResults()`, updated CSV export
+- `src/analyzer.js` - New `analyzeDelete()` method with risk scoring
+- `src/app.js` - Operation toggle UI, new `displayDeleteResults()`, updated CSV export
 - `index.html` - Operation toggle radio buttons in impact analysis sidebar
-- `styles.css` - Risk badge styles, broken-ref highlighting, operation toggle styles
+- `src/styles.css` - Risk badge styles, broken-ref highlighting, operation toggle styles
 
 ---
 
@@ -194,7 +194,7 @@ Add search and filtering capabilities throughout the app. Large models (500+ mea
 
 **Implementation Details:**
 
-1. **Search in object selection dropdowns** (`app.js` + `index.html`):
+1. **Search in object selection dropdowns** (`src/app.js` + `index.html`):
    - Replace the native `<select>` dropdowns for object selection with a custom searchable dropdown component.
    - Build a reusable `SearchableSelect` class (or global function pattern matching existing code):
      - Text input that filters options as the user types
@@ -205,7 +205,7 @@ Add search and filtering capabilities throughout the app. Large models (500+ mea
    - Apply to: `#objectSelect` (impact), `#refactorObjectSelect` (refactor)
    - This directly addresses GitHub issue #19.
 
-2. **Search bar in impact analysis results** (`app.js` + `index.html`):
+2. **Search bar in impact analysis results** (`src/app.js` + `index.html`):
    - Add a search input above the impact split view:
      ```html
      <div class="results-filter-bar">
@@ -224,7 +224,7 @@ Add search and filtering capabilities throughout the app. Large models (500+ mea
      - Update section counts to show "X of Y" when filtering
      - Real-time filtering via `input` event (no debounce needed for DOM filtering)
 
-3. **Depth filter** (`app.js` + `index.html`):
+3. **Depth filter** (`src/app.js` + `index.html`):
    - Add a depth slider or dropdown:
      ```
      Max depth: [1] [2] [3] [All]
@@ -232,10 +232,10 @@ Add search and filtering capabilities throughout the app. Large models (500+ mea
    - When set to depth N, hide all `.dependency-item` elements with `depth > N`.
    - Update counts when depth filter changes.
 
-4. **Filter persistence within session** (`app.js`):
+4. **Filter persistence within session** (`src/app.js`):
    - Store current filter state (search text, type toggles, depth) so they persist when switching tabs and coming back.
 
-5. **Search in lineage view** (`graph.js`):
+5. **Search in lineage view** (`src/graph.js`):
    - Add a simple text filter above the lineage visualization.
    - When text is entered, highlight matching nodes (add a CSS class for glow/border) and dim non-matching ones.
 
@@ -251,10 +251,10 @@ Add search and filtering capabilities throughout the app. Large models (500+ mea
 - [ ] No console errors in Chrome/Edge DevTools
 
 **Files Likely Affected:**
-- `app.js` - `SearchableSelect` class, filter logic, updated `displayImpactResults()`
+- `src/app.js` - `SearchableSelect` class, filter logic, updated `displayImpactResults()`
 - `index.html` - Filter bar HTML, searchable dropdown structure
-- `styles.css` - Filter bar styles, searchable dropdown styles, highlight/dim states
-- `graph.js` - Node highlighting for search
+- `src/styles.css` - Filter bar styles, searchable dropdown styles, highlight/dim states
+- `src/graph.js` - Node highlighting for search
 
 ---
 
@@ -315,7 +315,7 @@ table 'Time Intelligence'
 
 **Implementation for Calculation Groups:**
 
-1. **Update `TMDLParser.parseTableTMDL()`** (`parsers.js`):
+1. **Update `TMDLParser.parseTableTMDL()`** (`src/parsers.js`):
    - Detect `calculationGroup` keyword in table content.
    - When found, parse `calculationItem 'Name' =` blocks (same pattern as measures).
    - Extract the DAX expression for each calculation item.
@@ -332,7 +332,7 @@ table 'Time Intelligence'
      }
      ```
 
-2. **Update `DependencyAnalyzer`** (`analyzer.js`):
+2. **Update `DependencyAnalyzer`** (`src/analyzer.js`):
    - Add `addCalculationGroupNodes()` method.
    - For each calculation group table, create a `calculationGroup` node and individual `calculationItem` nodes.
    - Parse DAX in each calculation item to find column references (e.g., `'Calendar'[Date]`).
@@ -391,7 +391,7 @@ The key distinction: for measures, the table name (which is always literally `'M
 
 **Implementation for Field Parameters:**
 
-1. **Update `TMDLParser.parseTableTMDL()`** (`parsers.js`):
+1. **Update `TMDLParser.parseTableTMDL()`** (`src/parsers.js`):
    - Detect `isParameterTable` keyword in table content.
    - When found, also look for `partition` blocks with `calculated` expressions containing `NAMEOF()`.
    - Extract field parameter references:
@@ -408,7 +408,7 @@ The key distinction: for measures, the table name (which is always literally `'M
      }
      ```
 
-2. **Add `DAXParser.extractFieldParameterRefs(daxExpression)`** (`parsers.js`):
+2. **Add `DAXParser.extractFieldParameterRefs(daxExpression)`** (`src/parsers.js`):
    - Parse `NAMEOF('TableName'[PropertyName])` patterns.
    - Regex: `/NAMEOF\s*\(\s*'([^']+)'\[([^\]]+)\]\s*\)/gi`
    - Classify each reference:
@@ -416,19 +416,19 @@ The key distinction: for measures, the table name (which is always literally `'M
      - Otherwise, classify as `type: 'column'`.
    - Also extract the display name from the tuple: `("Display Name", NAMEOF(...), ordinal)`.
 
-3. **Update `DependencyAnalyzer`** (`analyzer.js`):
+3. **Update `DependencyAnalyzer`** (`src/analyzer.js`):
    - Add `addFieldParameterNodes()` method.
    - Create a `fieldParameter` node for the parameter table.
    - Create edges from the field parameter to each referenced measure/column.
    - When analyzing impact of a measure rename, field parameters that reference it should appear in downstream dependents.
 
-4. **Display logic** (`app.js` + `graph.js`):
+4. **Display logic** (`src/app.js` + `src/graph.js`):
    - In impact results, show field parameters as a new section under downstream dependents.
    - For measure references in field parameters: display as just `Total Sales` (no table prefix).
    - For column references in field parameters: display as `Sales[Avg Order Value]` (with table prefix).
    - In lineage view, use a distinct color (e.g., warm orange) and icon for field parameter nodes.
 
-5. **Update `RefactoringEngine` for field parameters** (`refactor.js`):
+5. **Update `RefactoringEngine` for field parameters** (`src/refactor.js`):
    - When renaming a measure, also update `NAMEOF('Measure'[OldName])` → `NAMEOF('Measure'[NewName])` in partition expressions of field parameter tables.
    - When renaming a column, update `NAMEOF('TableName'[OldColumn])` → `NAMEOF('TableName'[NewColumn])`.
    - When renaming a table (Task 2-1), update `NAMEOF('OldTable'[Column])` → `NAMEOF('NewTable'[Column])` in partition expressions.
@@ -449,13 +449,13 @@ The key distinction: for measures, the table name (which is always literally `'M
 - [ ] Existing parsing of regular tables/measures still works unchanged
 
 **Files Likely Affected:**
-- `parsers.js` - Updated `parseTableTMDL()`, new `extractFieldParameterRefs()`, calculation item parsing
-- `analyzer.js` - New `addCalculationGroupNodes()`, `addFieldParameterNodes()`, updated `buildDependencyGraph()`
-- `refactor.js` - Updated rename preview to handle `NAMEOF()` references in partition expressions
-- `app.js` - Updated display logic for new node types, field parameter display formatting
-- `graph.js` - New colors and icons for calculation groups and field parameters
+- `src/parsers.js` - Updated `parseTableTMDL()`, new `extractFieldParameterRefs()`, calculation item parsing
+- `src/analyzer.js` - New `addCalculationGroupNodes()`, `addFieldParameterNodes()`, updated `buildDependencyGraph()`
+- `src/refactor.js` - Updated rename preview to handle `NAMEOF()` references in partition expressions
+- `src/app.js` - Updated display logic for new node types, field parameter display formatting
+- `src/graph.js` - New colors and icons for calculation groups and field parameters
 - `index.html` - No structural changes needed (reuses existing containers)
-- `styles.css` - New colors for calculation group and field parameter nodes
+- `src/styles.css` - New colors for calculation group and field parameter nodes
 
 ---
 
@@ -476,9 +476,9 @@ Add session persistence using `localStorage` so users don't lose context between
 
 **Implementation Details:**
 
-1. **Create `sessionManager.js`** (new file):
-   - Add to script load order in `index.html` BEFORE `app.js`:
-     `fileAccess.js → parsers.js → analyzer.js → refactor.js → graph.js → sessionManager.js → app.js`
+1. **Create `src/sessionManager.js`** (new file):
+   - Add to script load order in `index.html` BEFORE `src/app.js`:
+     `src/fileAccess.js → src/parsers.js → src/analyzer.js → src/refactor.js → src/graph.js → src/sessionManager.js → src/app.js`
    - Class: `SessionManager` with methods:
      ```js
      class SessionManager {
@@ -531,7 +531,7 @@ Add session persistence using `localStorage` so users don't lose context between
      }
      ```
 
-2. **Quick Access Panel in sidebar** (`index.html` + `app.js`):
+2. **Quick Access Panel in sidebar** (`index.html` + `src/app.js`):
    - Add a collapsible "Quick Access" section above the object type selector in the Impact Analysis sidebar:
      ```html
      <div class="quick-access-panel">
@@ -548,7 +548,7 @@ Add session persistence using `localStorage` so users don't lose context between
    - Recent list shows last 10 analyzed objects with relative timestamp ("2 min ago", "yesterday").
    - Favorites list shows starred items with a remove button.
 
-3. **Favorite toggle on impact results** (`app.js`):
+3. **Favorite toggle on impact results** (`src/app.js`):
    - Add a star icon button next to the selected object name in impact results:
      ```html
      <button id="favoriteToggleBtn" class="favorite-btn" title="Add to favorites">
@@ -558,14 +558,14 @@ Add session persistence using `localStorage` so users don't lose context between
    - Clicking toggles the favorite state. Filled star = favorited, outline = not favorited.
    - Update `displayImpactResults()` to check `sessionManager.isFavorite(nodeId)` and set initial state.
 
-4. **Restore settings on load** (`app.js`):
+4. **Restore settings on load** (`src/app.js`):
    - In `init()`, after setting up event listeners:
      - Restore last active tab via `switchTab(settings.lastTab)`.
      - Restore last object type selection.
    - On tab switch, save the active tab.
    - On object type change, save the selection.
 
-5. **Last folder indicator** (`app.js`):
+5. **Last folder indicator** (`src/app.js`):
    - After successful folder load, save folder metadata via `sessionManager.saveLastFolder()`.
    - On app init, if `getLastFolder()` returns data, show a subtle hint below the "Select Project Folder" button:
      `"Last opened: MyProject / Sales.SemanticModel"`
@@ -585,10 +585,10 @@ Add session persistence using `localStorage` so users don't lose context between
 - [ ] Existing functionality not broken
 
 **Files Likely Affected:**
-- `sessionManager.js` - **NEW FILE** - `SessionManager` class
-- `index.html` - Script tag for `sessionManager.js`, Quick Access panel HTML
-- `app.js` - Initialize `SessionManager`, integrate with analysis flow, favorite toggle, settings restore
-- `styles.css` - Quick Access panel styles, favorite button styles, recent/favorites list styles
+- `src/sessionManager.js` - **NEW FILE** - `SessionManager` class
+- `index.html` - Script tag for `src/sessionManager.js`, Quick Access panel HTML
+- `src/app.js` - Initialize `SessionManager`, integrate with analysis flow, favorite toggle, settings restore
+- `src/styles.css` - Quick Access panel styles, favorite button styles, recent/favorites list styles
 
 ---
 
@@ -616,7 +616,7 @@ Enable GitHub Sponsors for the repository and add a "Support this project" link 
 **Files Likely Affected:**
 - `.github/FUNDING.yml` — new file
 - `index.html` — footer update (combined with Task 2-7)
-- `styles.css` — sponsor link styles
+- `src/styles.css` — sponsor link styles
 
 ---
 
@@ -633,19 +633,19 @@ Enable GitHub Sponsors for the repository and add a "Support this project" link 
 
 **Description:**
 
-Expand the footer with a config-driven sponsor bar. When the `SPONSORS` array in `app.js` is empty, the bar is hidden. Sponsors can be added by editing one array.
+Expand the footer with a config-driven sponsor bar. When the `SPONSORS` array in `src/app.js` is empty, the bar is hidden. Sponsors can be added by editing one array.
 
 **Implementation Details:**
 
 1. Replace footer HTML with combined sponsor bar + footer links
-2. Add `SPONSORS` config array and `renderSponsors()` function to `app.js`
+2. Add `SPONSORS` config array and `renderSponsors()` function to `src/app.js`
 3. Add CSS styles for sponsor bar, logos, and "Become a sponsor" link
 4. Create `assets/sponsors/` directory for future sponsor logos
 
 **Files Likely Affected:**
 - `index.html` — new footer structure
-- `app.js` — `SPONSORS` config + `renderSponsors()` function
-- `styles.css` — sponsor bar styles
+- `src/app.js` — `SPONSORS` config + `renderSponsors()` function
+- `src/styles.css` — sponsor bar styles
 - `assets/sponsors/` — new directory
 
 ---
@@ -667,11 +667,11 @@ Add "Visual" as a third option in the Impact Analysis object type dropdown. When
 
 **Implementation Details:**
 
-1. Extract position data from visual.json in `parsers.js` (`parseVisual()`)
-2. Store position in `parsedData.visuals` in `app.js`
+1. Extract position data from visual.json in `src/parsers.js` (`parseVisual()`)
+2. Store position in `parsedData.visuals` in `src/app.js`
 3. Add "Visual" option to `#objectTypeSelect` in `index.html`
-4. Add two-step page/visual picker dropdowns (`index.html` + `app.js`)
-5. Add `renderVisualMiniMap()` function in `app.js`
+4. Add two-step page/visual picker dropdowns (`index.html` + `src/app.js`)
+5. Add `renderVisualMiniMap()` function in `src/app.js`
 6. Update `displayImpactResults()` to handle visual analysis (upstream-only, hide downstream)
 
 **Acceptance Criteria:**
@@ -683,10 +683,10 @@ Add "Visual" as a third option in the Impact Analysis object type dropdown. When
 - Existing measure/column analysis unaffected
 
 **Files Likely Affected:**
-- `parsers.js` — extract `position` from `parseVisual()`
-- `app.js` — new populate/handler functions, `renderVisualMiniMap()`, updated `handleAnalyzeImpact()` and `displayImpactResults()`
+- `src/parsers.js` — extract `position` from `parseVisual()`
+- `src/app.js` — new populate/handler functions, `renderVisualMiniMap()`, updated `handleAnalyzeImpact()` and `displayImpactResults()`
 - `index.html` — "Visual" option + page/visual dropdowns
-- `styles.css` — mini-map styles
+- `src/styles.css` — mini-map styles
 
 ---
 
@@ -694,12 +694,12 @@ Add "Visual" as a third option in the Impact Analysis object type dropdown. When
 
 ### Feature Agent (Tasks 2-1, 2-2, 2-4, 2-5, 2-8)
 - **Scope**: JavaScript business logic, new parsers, analyzer enhancements, refactoring engine updates, visual upstream analysis
-- **Constraints**: Zero new dependencies. All new JS must follow the existing class pattern (or global function pattern in `app.js`). Must integrate with existing global state. No `import/export` — all scripts share global scope.
+- **Constraints**: Zero new dependencies. All new JS must follow the existing class pattern (or global function pattern in `src/app.js`). Must integrate with existing global state. No `import/export` — all scripts share global scope.
 - **Testing**: Load a PBIP folder in Chrome/Edge and verify the feature works across all tabs without breaking existing functionality. Check browser DevTools for errors.
 
 ### UI Agent (Tasks 2-3, 2-7)
 - **Scope**: Search/filter UI components, CSS styling, keyboard navigation, responsive design, sponsor bar footer
-- **Constraints**: Must use CSS custom properties from `:root`. No inline styles in HTML (dynamic JS styles are acceptable for generated elements). JavaScript for the searchable dropdown should follow the existing function/class patterns in `app.js`.
+- **Constraints**: Must use CSS custom properties from `:root`. No inline styles in HTML (dynamic JS styles are acceptable for generated elements). JavaScript for the searchable dropdown should follow the existing function/class patterns in `src/app.js`.
 - **Testing**: Visual inspection in Chrome/Edge at desktop and mobile widths. Test keyboard navigation. Verify filter counts update correctly.
 
 ### DevOps Agent (Task 2-6)
@@ -728,25 +728,25 @@ The sub-agent will:
 
 ### Task Execution Order
 
-All eight tasks can be organized into waves to minimize merge conflicts in `app.js` and `index.html`:
+All eight tasks can be organized into waves to minimize merge conflicts in `src/app.js` and `index.html`:
 
 **Recommended execution order:**
 
 1. **Wave 1 (start immediately, minimal overlap):**
-   - Task 2-4 (Calculation Groups & Field Params) — primarily touches `parsers.js` and `analyzer.js`
-   - Task 2-5 (Session Persistence) — creates a new `sessionManager.js` file
+   - Task 2-4 (Calculation Groups & Field Params) — primarily touches `src/parsers.js` and `src/analyzer.js`
+   - Task 2-5 (Session Persistence) — creates a new `src/sessionManager.js` file
    - Task 2-6 (GitHub Sponsors) — only adds `FUNDING.yml` + small footer change
-   - Task 2-7 (Sponsor Bar) — footer HTML/CSS + sponsor config in `app.js`
+   - Task 2-7 (Sponsor Bar) — footer HTML/CSS + sponsor config in `src/app.js`
 
 2. **Wave 2 (after Wave 1 merges):**
-   - Task 2-1 (Batch Operations) — primarily touches `refactor.js` and `fileAccess.js`
-   - Task 2-2 (Delete Analysis) — primarily touches `analyzer.js` and `app.js`
+   - Task 2-1 (Batch Operations) — primarily touches `src/refactor.js` and `src/fileAccess.js`
+   - Task 2-2 (Delete Analysis) — primarily touches `src/analyzer.js` and `src/app.js`
 
 3. **Wave 3 (after Wave 2 merges):**
-   - Task 2-3 (Search & Filter) — touches `app.js` heavily, best done after other `app.js` changes land
+   - Task 2-3 (Search & Filter) — touches `src/app.js` heavily, best done after other `src/app.js` changes land
    - Task 2-8 (Visual Upstream Analysis) — touches Impact Analysis sidebar (same area as 2-3)
 
-**Rationale:** Tasks 2-4 and 2-5 have the least overlap with each other and with the rest. Tasks 2-6 and 2-7 are small footer changes that ship alongside Wave 1 with zero conflict risk. Tasks 2-1 and 2-2 both modify `analyzer.js` and `app.js` but in different areas. Task 2-3 and 2-8 modify `app.js` display functions and the Impact Analysis sidebar, so doing them last minimizes conflict resolution.
+**Rationale:** Tasks 2-4 and 2-5 have the least overlap with each other and with the rest. Tasks 2-6 and 2-7 are small footer changes that ship alongside Wave 1 with zero conflict risk. Tasks 2-1 and 2-2 both modify `src/analyzer.js` and `src/app.js` but in different areas. Task 2-3 and 2-8 modify `src/app.js` display functions and the Impact Analysis sidebar, so doing them last minimizes conflict resolution.
 
 ### Merge Order
 

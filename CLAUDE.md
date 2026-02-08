@@ -22,25 +22,26 @@ PBIP Impact Analyzer is a browser-based tool for Power BI developers to safely r
 | File | Class/Pattern | Responsibility |
 |------|---------------|----------------|
 | `index.html` | HTML structure | Tab layout, forms, result containers, script loading order |
-| `app.js` | Global functions + `init()` | App orchestration, UI event handlers, DOM manipulation |
-| `analyzer.js` | `class DependencyAnalyzer` | Dependency graph building, impact analysis (upstream/downstream) |
-| `parsers.js` | `class TMDLParser` (static methods) | TMDL file parsing, DAX extraction, JSON report parsing |
-| `fileAccess.js` | `class FileAccessManager` | File System Access API wrapper, folder traversal, file read/write |
-| `refactor.js` | `class RefactoringEngine` | Rename preview, diff generation, apply with backup/rollback |
-| `graph.js` | `class GraphVisualizer` | SVG-based horizontal lineage diagram, PNG export |
-| `styles.css` | CSS custom properties | All styling, Microsoft Fluent-inspired design system |
+| `src/app.js` | Global functions + `init()` | App orchestration, UI event handlers, DOM manipulation |
+| `src/analyzer.js` | `class DependencyAnalyzer` | Dependency graph building, impact analysis (upstream/downstream) |
+| `src/parsers.js` | `class TMDLParser` (static methods) | TMDL file parsing, DAX extraction, JSON report parsing |
+| `src/fileAccess.js` | `class FileAccessManager` | File System Access API wrapper, folder traversal, file read/write |
+| `src/refactor.js` | `class RefactoringEngine` | Rename preview, diff generation, apply with backup/rollback |
+| `src/graph.js` | `class GraphVisualizer` | SVG-based horizontal lineage diagram, PNG export |
+| `src/sessionManager.js` | `class SessionManager` | Session persistence, recent analyses, favorites |
+| `src/styles.css` | CSS custom properties | All styling, Microsoft Fluent-inspired design system |
 
 ## Architecture Notes
 
-- **Script load order** in `index.html`: `fileAccess.js` → `parsers.js` → `analyzer.js` → `refactor.js` → `graph.js` → `app.js` (plus `html2canvas` from CDN before all scripts)
+- **Script load order** in `index.html`: `src/fileAccess.js` → `src/parsers.js` → `src/analyzer.js` → `src/refactor.js` → `src/graph.js` → `src/sessionManager.js` → `src/app.js` (plus `html2canvas` from CDN before all scripts)
 - **No module system**: All scripts share the global scope (no import/export)
-- **Global state** in `app.js`: `fileAccessManager`, `dependencyAnalyzer`, `refactoringEngine`, `graphVisualizer`, `parsedData`
-- **Classes instantiated** in `app.js` `init()` function
+- **Global state** in `src/app.js`: `fileAccessManager`, `dependencyAnalyzer`, `refactoringEngine`, `graphVisualizer`, `parsedData`
+- **Classes instantiated** in `src/app.js` `init()` function
 - **UI is tab-based**: Impact Analysis, Lineage, Safe Refactoring
 
 ## CSS Design System
 
-All colors use CSS custom properties defined in `:root` in `styles.css`. New CSS must use these variables — never hardcode colors.
+All colors use CSS custom properties defined in `:root` in `src/styles.css`. New CSS must use these variables — never hardcode colors.
 
 ```css
 --primary-color: #0078d4;    --primary-hover: #106ebe;

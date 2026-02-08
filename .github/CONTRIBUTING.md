@@ -63,13 +63,14 @@ Firefox and Safari are **not supported**.
 | File | Purpose |
 |------|---------|
 | `index.html` | Main HTML page with tab structure |
-| `app.js` | Application orchestration and UI event handling |
-| `analyzer.js` | Dependency graph building and analysis |
-| `parsers.js` | TMDL, JSON, and DAX parsers |
-| `fileAccess.js` | File System Access API wrapper |
-| `refactor.js` | Rename preview and apply operations |
-| `graph.js` | Lineage visualization and PNG export |
-| `styles.css` | All styling |
+| `src/app.js` | Application orchestration and UI event handling |
+| `src/analyzer.js` | Dependency graph building and analysis |
+| `src/parsers.js` | TMDL, JSON, and DAX parsers |
+| `src/fileAccess.js` | File System Access API wrapper |
+| `src/refactor.js` | Rename preview and apply operations |
+| `src/graph.js` | Lineage visualization and PNG export |
+| `src/sessionManager.js` | Session persistence, recent analyses, favorites |
+| `src/styles.css` | All styling |
 
 ## Code Style
 

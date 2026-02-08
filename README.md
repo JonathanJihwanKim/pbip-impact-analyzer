@@ -87,7 +87,7 @@ Click **Proceed to Refactoring** or go directly to this tab to rename an object.
 
 ## Contributing
 
-Contributions are welcome! Please read the [Contributing Guide](CONTRIBUTING.md) to get started. Check out the [Roadmap](ROADMAP.md) for planned features.
+Contributions are welcome! Please read the [Contributing Guide](.github/CONTRIBUTING.md) to get started. Check out the [Roadmap](docs/ROADMAP.md) for planned features.
 
 ## License
 

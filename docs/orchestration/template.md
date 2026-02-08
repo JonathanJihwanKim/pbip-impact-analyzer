@@ -49,7 +49,7 @@
 - [ ] Existing functionality not broken (manual smoke test)
 
 **Files Likely Affected:**
-- `styles.css` - [what changes]
+- `src/styles.css` - [what changes]
 - `index.html` - [what changes]
 
 ---
@@ -76,8 +76,8 @@
 - [ ] Existing functionality not broken
 
 **Files Likely Affected:**
-- `app.js` - [what changes]
-- `analyzer.js` - [what changes]
+- `src/app.js` - [what changes]
+- `src/analyzer.js` - [what changes]
 
 ---
 
