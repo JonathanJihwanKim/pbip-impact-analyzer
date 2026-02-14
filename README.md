@@ -89,6 +89,15 @@ Click **Proceed to Refactoring** or go directly to this tab to rename an object.
 
 Contributions are welcome! Please read the [Contributing Guide](.github/CONTRIBUTING.md) to get started. Check out the [Roadmap](docs/ROADMAP.md) for planned features.
 
+## Support This Project
+
+If this tool saves you time, consider supporting its development:
+
+- [Sponsor on GitHub](https://github.com/sponsors/JonathanJihwanKim)
+- [Buy Me a Coffee](https://buymeacoffee.com/jihwankim)
+
+Your support helps keep this tool free and actively maintained.
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
