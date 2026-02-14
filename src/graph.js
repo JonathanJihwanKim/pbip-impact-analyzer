@@ -92,6 +92,7 @@ class GraphVisualizer {
             { type: 'columns', label: 'Columns', items: upstream.columns, color: '#4a7c59' },
             { type: 'measures', label: 'Measures', items: upstream.measures, color: '#1a3a5c' },
             { type: 'calculationItems', label: 'Calculation Items', items: upstream.calculationItems, color: '#1a8a7b' },
+            { type: 'calculationGroups', label: 'Calculation Groups', items: upstream.calculationGroups, color: '#2a7b6e' },
             { type: 'fieldParameters', label: 'Field Parameters', items: upstream.fieldParameters, color: '#d4763a' }
         ];
 

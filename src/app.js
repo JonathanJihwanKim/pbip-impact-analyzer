@@ -1067,11 +1067,13 @@ function displayImpactResults(result) {
         const columnCount = upstream.columns ? upstream.columns.length : 0;
         const tableCount = upstream.tables ? upstream.tables.length : 0;
         const fieldParamCount = upstream.fieldParameters ? upstream.fieldParameters.length : 0;
+        const calcGroupCount = upstream.calculationGroups ? upstream.calculationGroups.length : 0;
         const summaryParts = [];
         if (measureCount > 0) summaryParts.push(`${measureCount} measure${measureCount !== 1 ? 's' : ''}`);
         if (columnCount > 0) summaryParts.push(`${columnCount} column${columnCount !== 1 ? 's' : ''}`);
         if (tableCount > 0) summaryParts.push(`from ${tableCount} table${tableCount !== 1 ? 's' : ''}`);
         if (fieldParamCount > 0) summaryParts.push(`${fieldParamCount} field parameter${fieldParamCount !== 1 ? 's' : ''}`);
+        if (calcGroupCount > 0) summaryParts.push(`${calcGroupCount} calculation group${calcGroupCount !== 1 ? 's' : ''}`);
 
         if (summaryParts.length > 0) {
             const summaryDiv = document.createElement('div');
@@ -1491,6 +1493,11 @@ function displayUpstreamDependencies(upstream, targetName, targetType) {
         fpToggle.innerHTML =
             `<span class="toggle-icon material-symbols-outlined">expand_more</span> Field Parameters (<span id="upstreamFieldParamsCount">0</span>)`;
     }
+    const cgToggle = document.querySelector('[data-section="upstream-calc-groups"]');
+    if (cgToggle) {
+        cgToggle.innerHTML =
+            `<span class="toggle-icon material-symbols-outlined">expand_more</span> Calculation Groups (<span id="upstreamCalcGroupsCount">0</span>)`;
+    }
 
     // Update counts
     document.getElementById('upstreamCount').textContent = upstream.totalCount || 0;
@@ -1499,6 +1506,8 @@ function displayUpstreamDependencies(upstream, targetName, targetType) {
     document.getElementById('upstreamMeasuresCount').textContent = upstream.measures.length;
     const fpCountEl = document.getElementById('upstreamFieldParamsCount');
     if (fpCountEl) fpCountEl.textContent = (upstream.fieldParameters || []).length;
+    const cgCountEl = document.getElementById('upstreamCalcGroupsCount');
+    if (cgCountEl) cgCountEl.textContent = (upstream.calculationGroups || []).length;
 
     // Display tables
     const tablesContainer = document.getElementById('upstreamTablesList');
@@ -1549,6 +1558,21 @@ function displayUpstreamDependencies(upstream, targetName, targetType) {
             fieldParams.forEach(fp => {
                 const item = createDependencyItem(fp, 'fieldParameter');
                 fieldParamsContainer.appendChild(item);
+            });
+        }
+    }
+
+    // Display calculation groups
+    const calcGroupsContainer = document.getElementById('upstream-calc-groupsList');
+    if (calcGroupsContainer) {
+        calcGroupsContainer.innerHTML = '';
+        const calcGroups = upstream.calculationGroups || [];
+        if (calcGroups.length === 0) {
+            calcGroupsContainer.innerHTML = '<div class="empty-results">No calculation group dependencies</div>';
+        } else {
+            calcGroups.forEach(cg => {
+                const item = createDependencyItem(cg, 'calculationGroup');
+                calcGroupsContainer.appendChild(item);
             });
         }
     }
@@ -1674,6 +1698,55 @@ function createDependencyItem(item, type, showDAX = false) {
         details.className = 'dependency-item-details';
         details.textContent = `Calculation Group: ${item.tableName}${item.usesSelectedMeasure ? ' | Uses SELECTEDMEASURE()' : ''}`;
         div.appendChild(details);
+    }
+
+    // Add details for calculation groups
+    if (type === 'calculationGroup') {
+        const details = document.createElement('div');
+        details.className = 'dependency-item-details';
+        const itemCount = item.calculationItemCount || 0;
+        details.textContent = `Calculation Group \u2014 ${itemCount} calculation item${itemCount !== 1 ? 's' : ''}`;
+        div.appendChild(details);
+
+        // List individual calculation items with DAX
+        const calcItems = item.calculationItems || [];
+        if (calcItems.length > 0) {
+            const itemsList = document.createElement('div');
+            itemsList.style.marginTop = '4px';
+            itemsList.style.marginLeft = '8px';
+
+            for (const calcItem of calcItems) {
+                const itemEntry = document.createElement('div');
+                itemEntry.style.marginBottom = '4px';
+
+                const itemName = document.createElement('span');
+                itemName.style.fontWeight = '500';
+                itemName.textContent = calcItem.name;
+                itemEntry.appendChild(itemName);
+
+                if (calcItem.dax) {
+                    const daxExpandable = document.createElement('div');
+                    daxExpandable.className = 'dax-expandable';
+
+                    const daxBtn = document.createElement('button');
+                    daxBtn.className = 'dax-toggle-btn';
+                    daxBtn.textContent = 'Show DAX';
+
+                    const daxCode = document.createElement('div');
+                    daxCode.className = 'dax-code-container';
+                    daxCode.innerHTML = `<pre>${escapeHtml(calcItem.dax)}</pre>`;
+
+                    daxBtn.onclick = () => toggleDAX(daxBtn, daxCode);
+
+                    daxExpandable.appendChild(daxBtn);
+                    daxExpandable.appendChild(daxCode);
+                    itemEntry.appendChild(daxExpandable);
+                }
+
+                itemsList.appendChild(itemEntry);
+            }
+            div.appendChild(itemsList);
+        }
     }
 
     // Add details for field parameters

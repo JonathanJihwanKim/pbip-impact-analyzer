@@ -335,38 +335,18 @@ class DependencyAnalyzer {
                             type: 'visual-to-fieldParameter'
                         });
                     } else {
-                        const colNodeId = `${field.table}.${field.column}`;
-
-                        if (this.dependencyGraph.nodes[colNodeId]) {
+                        // Proactive check: if the table is a calculation group, link to it
+                        // (must come before regular column check since addColumnNodes creates
+                        // column nodes for calc group tables too)
+                        const calcGroupNodeId = `CalcGroup.${field.table}`;
+                        if (this.dependencyGraph.nodes[calcGroupNodeId]) {
                             visualNode.dependencies.push({
-                                type: 'column',
-                                ref: colNodeId,
-                                table: field.table,
-                                column: field.column
-                            });
-
-                            this.dependencyGraph.nodes[colNodeId].usedBy.push({
-                                type: 'visual',
-                                ref: visualNodeId,
-                                pageId: visual.pageId,
-                                visualId: visual.visualId,
-                                visualType: visual.visualType
-                            });
-
-                            this.dependencyGraph.edges.push({
-                                from: visualNodeId,
-                                to: colNodeId,
-                                type: 'visual-to-column'
-                            });
-                        } else if (this.dependencyGraph.nodes[paramNodeId]) {
-                            // Fallback: column not found, check field parameter table
-                            visualNode.dependencies.push({
-                                type: 'fieldParameter',
-                                ref: paramNodeId,
+                                type: 'calculationGroup',
+                                ref: calcGroupNodeId,
                                 name: field.table
                             });
 
-                            this.dependencyGraph.nodes[paramNodeId].usedBy.push({
+                            this.dependencyGraph.nodes[calcGroupNodeId].usedBy.push({
                                 type: 'visual',
                                 ref: visualNodeId,
                                 pageId: visual.pageId,
@@ -376,9 +356,55 @@ class DependencyAnalyzer {
 
                             this.dependencyGraph.edges.push({
                                 from: visualNodeId,
-                                to: paramNodeId,
-                                type: 'visual-to-fieldParameter'
+                                to: calcGroupNodeId,
+                                type: 'visual-to-calculationGroup'
                             });
+                        } else {
+                            const colNodeId = `${field.table}.${field.column}`;
+
+                            if (this.dependencyGraph.nodes[colNodeId]) {
+                                visualNode.dependencies.push({
+                                    type: 'column',
+                                    ref: colNodeId,
+                                    table: field.table,
+                                    column: field.column
+                                });
+
+                                this.dependencyGraph.nodes[colNodeId].usedBy.push({
+                                    type: 'visual',
+                                    ref: visualNodeId,
+                                    pageId: visual.pageId,
+                                    visualId: visual.visualId,
+                                    visualType: visual.visualType
+                                });
+
+                                this.dependencyGraph.edges.push({
+                                    from: visualNodeId,
+                                    to: colNodeId,
+                                    type: 'visual-to-column'
+                                });
+                            } else if (this.dependencyGraph.nodes[paramNodeId]) {
+                                // Fallback: column not found, check field parameter table
+                                visualNode.dependencies.push({
+                                    type: 'fieldParameter',
+                                    ref: paramNodeId,
+                                    name: field.table
+                                });
+
+                                this.dependencyGraph.nodes[paramNodeId].usedBy.push({
+                                    type: 'visual',
+                                    ref: visualNodeId,
+                                    pageId: visual.pageId,
+                                    visualId: visual.visualId,
+                                    visualType: visual.visualType
+                                });
+
+                                this.dependencyGraph.edges.push({
+                                    from: visualNodeId,
+                                    to: paramNodeId,
+                                    type: 'visual-to-fieldParameter'
+                                });
+                            }
                         }
                     }
                 }
@@ -476,9 +502,9 @@ class DependencyAnalyzer {
 
         // Count totals
         const upstreamTotal = upstream.measures.length + upstream.columns.length + upstream.tables.length +
-            upstream.calculationItems.length + upstream.fieldParameters.length;
+            upstream.calculationItems.length + upstream.calculationGroups.length + upstream.fieldParameters.length;
         const downstreamTotal = downstream.measures.length + downstream.visuals.length +
-            downstream.calculationItems.length + downstream.fieldParameters.length;
+            downstream.calculationItems.length + downstream.calculationGroups.length + downstream.fieldParameters.length;
 
         console.log(`Enhanced impact analysis complete: ${upstreamTotal} upstream, ${downstreamTotal} downstream`);
 
@@ -676,6 +702,7 @@ class DependencyAnalyzer {
             tables: [],
             visuals: [],
             calculationItems: [],
+            calculationGroups: [],
             fieldParameters: []
         };
 
@@ -688,8 +715,10 @@ class DependencyAnalyzer {
                 grouped.tables.push(node);
             } else if (node.type === 'visual') {
                 grouped.visuals.push(node);
-            } else if (node.type === 'calculationItem' || node.type === 'calculationGroup') {
+            } else if (node.type === 'calculationItem') {
                 grouped.calculationItems.push(node);
+            } else if (node.type === 'calculationGroup') {
+                grouped.calculationGroups.push(node);
             } else if (node.type === 'fieldParameter') {
                 grouped.fieldParameters.push(node);
             }
@@ -717,6 +746,10 @@ class DependencyAnalyzer {
                 name: table.tableName,
                 tableName: table.tableName,
                 calculationItemCount: (table.calculationItems || []).length,
+                calculationItems: (table.calculationItems || []).map(item => ({
+                    name: item.name,
+                    dax: item.dax
+                })),
                 dependencies: [],
                 usedBy: []
             };
