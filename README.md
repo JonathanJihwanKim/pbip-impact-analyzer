@@ -6,7 +6,7 @@ Safely refactor Power BI semantic models with confidence.
 
 A browser-based tool for Power BI developers working with PBIP (Power BI Project) folders. No installation, no dependencies, no sign-up. Just open it in your browser and go.
 
-**[Launch the App](https://jonathanjihwankim.github.io/pbip-impact-analyzer/)**
+**[Launch the App](https://jonathanjihwankim.github.io/pbip-impact-analyzer/)** | **[Support Development](https://github.com/sponsors/JonathanJihwanKim)**
 
 ---
 
@@ -89,14 +89,23 @@ Click **Proceed to Refactoring** or go directly to this tab to rename an object.
 
 Contributions are welcome! Please read the [Contributing Guide](.github/CONTRIBUTING.md) to get started. Check out the [Roadmap](docs/ROADMAP.md) for planned features.
 
-## Support This Project
+## Keep This Tool Free & Updated
 
-If this tool saves you time, consider supporting its development:
+This tool saves hours of manual dependency tracing across TMDL files. Your support funds continuous updates as Microsoft ships PBIR/PBIP changes.
 
-- [Sponsor on GitHub](https://github.com/sponsors/JonathanJihwanKim)
-- [Buy Me a Coffee](https://buymeacoffee.com/jihwankim)
+**Why sponsor?**
+- Ensures ongoing compatibility with Power BI Desktop updates and new TMDL features
+- Funds new features requested by the community
+- Keeps the tool free for everyone
 
-Your support helps keep this tool free and actively maintained.
+**Support options:**
+- [Sponsor on GitHub](https://github.com/sponsors/JonathanJihwanKim) — monthly or one-time
+- [Buy Me a Coffee](https://buymeacoffee.com/jihwankim) — quick one-time support
+- ⭐ **Star this repo** — free, helps others discover it
+
+## Also by Jihwan Kim
+
+- **[PBIR Visual Manager](https://github.com/JonathanJihwanKim/isHiddenInViewMode)** — Bulk-manage filter visibility, layer order, and visual interactions in Power BI PBIR reports
 
 ## License
 
