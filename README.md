@@ -114,3 +114,14 @@ MIT License - see [LICENSE](LICENSE) for details.
 ---
 
 **Author**: [Jonathan Jihwan Kim](https://github.com/JonathanJihwanKim)
+
+---
+
+### Who is this for?
+
+- **Enterprise BI architects** safely refactoring semantic models without breaking downstream dependencies
+- **Power BI developers** analyzing change impact before modifying DAX measures or columns
+- **Data governance teams** assessing risk before deploying model changes to production
+- **DevOps engineers** integrating impact analysis into CI/CD pipelines for Power BI
+
+**Built for:** Power BI | Microsoft Fabric | PBIP | PBIR | TMDL | Semantic Models | DAX | Impact Analysis | Data Governance | Refactoring
